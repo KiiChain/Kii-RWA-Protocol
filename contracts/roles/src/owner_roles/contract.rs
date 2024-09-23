@@ -125,17 +125,21 @@ pub mod execute {
 
 pub mod query {
     use super::*;
-    use crate::owner_roles::{msg::OwnerRole, state::OWNER_ROLES};
+    use crate::owner_roles::{
+        msg::{IsOwnerResponse, OwnerRole},
+        state::OWNER_ROLES,
+    };
     use cosmwasm_std::Addr;
 
-    pub fn is_owner(deps: Deps, role: OwnerRole, owner: Addr) -> StdResult<bool> {
-        OWNER_ROLES.has_role(deps.storage, role.to_string(), owner)
+    pub fn is_owner(deps: Deps, role: OwnerRole, owner: Addr) -> StdResult<IsOwnerResponse> {
+        let is_owner = OWNER_ROLES.has_role(deps.storage, role.to_string(), owner)?;
+        Ok(IsOwnerResponse { is_owner, role })
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::owner_roles::msg::OwnerRole;
+    use crate::owner_roles::msg::{IsOwnerResponse, OwnerRole};
 
     use super::*;
 
@@ -194,8 +198,10 @@ mod tests {
             owner: new_owner.clone(),
         };
         let res = query(deps.as_ref(), mock_env(), msg).unwrap();
-        let is_owner: bool = from_json(&res).unwrap();
-        assert!(is_owner);
+
+        let is_owner: IsOwnerResponse = from_json(&res).unwrap();
+        assert!(is_owner.is_owner);
+        assert_eq!(is_owner.role, OwnerRole::OwnerAdmin);
     }
 
     #[test]
@@ -239,8 +245,8 @@ mod tests {
             owner: new_owner.clone(),
         };
         let res = query(deps.as_ref(), mock_env(), msg).unwrap();
-        let is_owner: bool = from_json(&res).unwrap();
-        assert!(!is_owner);
+        let is_owner: IsOwnerResponse = from_json(&res).unwrap();
+        assert!(!is_owner.is_owner);
     }
 
     #[test]
@@ -331,8 +337,9 @@ mod tests {
                 owner: new_owner.clone(),
             };
             let res = query(deps.as_ref(), mock_env(), msg).unwrap();
-            let is_owner: bool = from_json(&res).unwrap();
-            assert!(is_owner);
+            let is_owner: IsOwnerResponse = from_json(&res).unwrap();
+            assert!(is_owner.is_owner);
+            assert_eq!(is_owner.role, role.clone());
         }
 
         // Remove one role
@@ -348,15 +355,16 @@ mod tests {
             owner: new_owner.clone(),
         };
         let res = query(deps.as_ref(), mock_env(), msg).unwrap();
-        let is_owner: bool = from_json(&res).unwrap();
-        assert!(!is_owner);
+        let is_owner: IsOwnerResponse = from_json(&res).unwrap();
+        assert!(!is_owner.is_owner);
 
         let msg = QueryMsg::IsOwner {
             role: OwnerRole::OwnerAdmin,
             owner: new_owner.clone(),
         };
         let res = query(deps.as_ref(), mock_env(), msg).unwrap();
-        let is_owner: bool = from_json(&res).unwrap();
-        assert!(is_owner);
+        let is_owner: IsOwnerResponse = from_json(&res).unwrap();
+        assert!(is_owner.is_owner);
+        assert_eq!(is_owner.role, OwnerRole::OwnerAdmin);
     }
 }
