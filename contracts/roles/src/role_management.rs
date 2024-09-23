@@ -1,17 +1,41 @@
 use cosmwasm_std::{Addr, StdResult, Storage};
 use cw_storage_plus::Map;
 
+/// RoleManagement struct provides a reusable way to manage roles within CosmWasm contracts.
+/// It uses a Map to store role assignments, where each entry associates a (role, address) pair
+/// with a boolean value indicating whether the address has the role.
 pub struct RoleManagement {
     roles: Map<(String, Addr), bool>,
 }
 
 impl RoleManagement {
+    /// Creates a new instance of RoleManagement.
+    ///
+    /// # Arguments
+    ///
+    /// * `namespace` - A string slice that holds the namespace for this instance.
+    ///                 This allows multiple contracts to use RoleManagement without conflicting storage.
+    ///
+    /// # Returns
+    ///
+    /// A new instance of RoleManagement.
     pub const fn new(namespace: &'static str) -> Self {
         Self {
             roles: Map::new(namespace),
         }
     }
 
+    /// Adds a role to an address.
+    ///
+    /// # Arguments
+    ///
+    /// * `storage` - A mutable reference to the contract's storage.
+    /// * `role` - The role to be assigned.
+    /// * `address` - The address to which the role is being assigned.
+    ///
+    /// # Returns
+    ///
+    /// A `StdResult<()>` which is Ok if the operation was successful, Err otherwise.
     pub fn add_role(
         &self,
         storage: &mut dyn Storage,
@@ -21,6 +45,17 @@ impl RoleManagement {
         self.roles.save(storage, (role, address), &true)
     }
 
+    /// Removes a role from an address.
+    ///
+    /// # Arguments
+    ///
+    /// * `storage` - A mutable reference to the contract's storage.
+    /// * `role` - The role to be removed.
+    /// * `address` - The address from which the role is being removed.
+    ///
+    /// # Returns
+    ///
+    /// A `StdResult<()>` which is Ok if the operation was successful, Err otherwise.
     pub fn remove_role(
         &self,
         storage: &mut dyn Storage,
@@ -31,6 +66,17 @@ impl RoleManagement {
         Ok(())
     }
 
+    /// Checks if an address has a specific role.
+    ///
+    /// # Arguments
+    ///
+    /// * `storage` - A reference to the contract's storage.
+    /// * `role` - The role to check for.
+    /// * `address` - The address to check.
+    ///
+    /// # Returns
+    ///
+    /// A `StdResult<bool>` which is Ok(true) if the address has the role, Ok(false) otherwise.
     pub fn has_role(&self, storage: &dyn Storage, role: String, address: Addr) -> StdResult<bool> {
         Ok(self
             .roles
