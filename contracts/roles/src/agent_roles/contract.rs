@@ -7,7 +7,7 @@ use cw2::set_contract_version;
 use crate::agent_roles::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::agent_roles::ContractError;
 
-use super::state::OWNER;
+use super::state::{OWNER, TOKEN};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:agent-roles";
@@ -34,6 +34,7 @@ pub fn instantiate(
 ) -> Result<Response, ContractError> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     OWNER.save(deps.storage, &msg.owner)?;
+    TOKEN.save(deps.storage, &msg.token)?;
 
     Ok(Response::new()
         .add_attribute("method", "instantiate")
@@ -47,7 +48,7 @@ pub fn instantiate(
 /// * `deps` - Mutable dependencies
 /// * `_env` - The environment info (unused)
 /// * `info` - Message info
-/// * `msg` - Execute AddAgentRole or RemoveAgentRole
+/// * `msg` - Execute agent functions
 ///
 /// # Returns
 ///
@@ -66,6 +67,17 @@ pub fn execute(
         ExecuteMsg::RemoveAgentRole { role, agent } => {
             execute::remove_agent_role(deps, info, role, agent)
         }
+        ExecuteMsg::Burn { amount } => execute::burn(deps, info, amount),
+        ExecuteMsg::BurnFrom { owner, amount } => execute::burn_from(deps, info, owner, amount),
+        ExecuteMsg::Mint { recipient, amount } => execute::mint(deps, info, recipient, amount),
+        ExecuteMsg::Transfer { recipient, amount } => {
+            execute::transfer(deps, info, recipient, amount)
+        }
+        ExecuteMsg::TransferFrom {
+            owner,
+            recipient,
+            amount,
+        } => execute::transfer_from(deps, info, owner, recipient, amount),
     }
 }
 
@@ -89,8 +101,12 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
 
 pub mod execute {
     use super::*;
-    use crate::agent_roles::{msg::AgentRole, state::AGENT_ROLE};
-    use cosmwasm_std::Addr;
+    use crate::agent_roles::{
+        helpers::{can_receive, can_transfer, is_transfer_allowed},
+        msg::AgentRole,
+        state::AGENT_ROLES,
+    };
+    use cosmwasm_std::{Addr, Uint128, WasmMsg};
 
     pub fn add_agent_role(
         deps: DepsMut,
@@ -102,7 +118,7 @@ pub mod execute {
         if info.sender != owner {
             return Err(ContractError::Unauthorized {});
         }
-        AGENT_ROLE.add_role(deps.storage, role.to_string(), agent.clone())?;
+        AGENT_ROLES.add_role(deps.storage, role.to_string(), agent.clone())?;
         Ok(Response::new()
             .add_attribute("action", "add_agent_role")
             .add_attribute("role", role.to_string())
@@ -119,11 +135,172 @@ pub mod execute {
         if info.sender != owner {
             return Err(ContractError::Unauthorized {});
         }
-        AGENT_ROLE.remove_role(deps.storage, role.to_string(), agent.clone())?;
+        AGENT_ROLES.remove_role(deps.storage, role.to_string(), agent.clone())?;
         Ok(Response::new()
             .add_attribute("action", "remove_agent_role")
             .add_attribute("role", role.to_string())
             .add_attribute("agent", agent))
+    }
+    pub fn burn(
+        deps: DepsMut,
+        info: MessageInfo,
+        amount: Uint128,
+    ) -> Result<Response, ContractError> {
+        if !AGENT_ROLES.has_role(
+            deps.storage,
+            AgentRole::SupplyModifiers.to_string(),
+            info.sender.clone(),
+        )? {
+            return Err(ContractError::Unauthorized {});
+        }
+        let token = TOKEN.load(deps.storage)?;
+        let msg = WasmMsg::Execute {
+            contract_addr: token.to_string(),
+            msg: to_json_binary(&ExecuteMsg::Burn { amount })?,
+            funds: vec![],
+        };
+        Ok(Response::new()
+            .add_message(msg)
+            .add_attribute("action", "burn")
+            .add_attribute("token", token)
+            .add_attribute("amount", amount))
+    }
+
+    pub fn burn_from(
+        deps: DepsMut,
+        info: MessageInfo,
+        owner: String,
+        amount: Uint128,
+    ) -> Result<Response, ContractError> {
+        if !AGENT_ROLES.has_role(
+            deps.storage,
+            AgentRole::SupplyModifiers.to_string(),
+            info.sender.clone(),
+        )? {
+            return Err(ContractError::Unauthorized {});
+        }
+        let token = TOKEN.load(deps.storage)?;
+        let msg = WasmMsg::Execute {
+            contract_addr: token.to_string(),
+            msg: to_json_binary(&ExecuteMsg::BurnFrom {
+                owner: owner.clone(),
+                amount,
+            })?,
+            funds: vec![],
+        };
+        Ok(Response::new()
+            .add_message(msg)
+            .add_attribute("action", "burn_from")
+            .add_attribute("owner", owner)
+            .add_attribute("amount", amount))
+    }
+
+    pub fn mint(
+        deps: DepsMut,
+        info: MessageInfo,
+        recipient: String,
+        amount: Uint128,
+    ) -> Result<Response, ContractError> {
+        if !AGENT_ROLES.has_role(
+            deps.storage,
+            AgentRole::SupplyModifiers.to_string(),
+            info.sender.clone(),
+        )? {
+            return Err(ContractError::Unauthorized {});
+        }
+        let token = TOKEN.load(deps.storage)?;
+        let msg = WasmMsg::Execute {
+            contract_addr: token.to_string(),
+            msg: to_json_binary(&ExecuteMsg::Mint {
+                recipient: recipient.clone(),
+                amount,
+            })?,
+            funds: vec![],
+        };
+        Ok(Response::new()
+            .add_message(msg)
+            .add_attribute("action", "mint")
+            .add_attribute("recipient", recipient)
+            .add_attribute("amount", amount))
+    }
+
+    pub fn transfer(
+        deps: DepsMut,
+        _info: MessageInfo,
+        recipient: String,
+        amount: Uint128,
+    ) -> Result<Response, ContractError> {
+        let token = TOKEN.load(deps.storage)?;
+
+        // Check if transfers are currently allowed
+        if !is_transfer_allowed(deps.as_ref())? {
+            return Err(ContractError::TransfersDisabled {});
+        }
+
+        // Check if the recipient is allowed to receive transfers
+        if !can_receive(deps.as_ref(), &recipient)? {
+            return Err(ContractError::Unauthorized {});
+        }
+        let msg = WasmMsg::Execute {
+            contract_addr: token.to_string(),
+            msg: to_json_binary(&ExecuteMsg::Transfer {
+                recipient: recipient.clone(),
+                amount,
+            })?,
+            funds: vec![],
+        };
+        Ok(Response::new()
+            .add_message(msg)
+            .add_attribute("action", "transfer")
+            .add_attribute("recipient", recipient)
+            .add_attribute("amount", amount))
+    }
+
+    pub fn transfer_from(
+        deps: DepsMut,
+        info: MessageInfo,
+        owner: String,
+        recipient: String,
+        amount: Uint128,
+    ) -> Result<Response, ContractError> {
+        if !AGENT_ROLES.has_role(
+            deps.storage,
+            AgentRole::TransferManager.to_string(),
+            info.sender.clone(),
+        )? {
+            return Err(ContractError::Unauthorized {});
+        }
+
+        // Check if transfers are currently allowed
+        if !is_transfer_allowed(deps.as_ref())? {
+            return Err(ContractError::TransfersDisabled {});
+        }
+
+        // Check if the owner is allowed to transfer
+        if !can_transfer(deps.as_ref(), &owner)? {
+            return Err(ContractError::Unauthorized {});
+        }
+
+        // Check if the recipient is allowed to receive transfers
+        if !can_receive(deps.as_ref(), &recipient)? {
+            return Err(ContractError::Unauthorized {});
+        }
+        let token = TOKEN.load(deps.storage)?;
+        let msg = WasmMsg::Execute {
+            contract_addr: token.to_string(),
+            msg: to_json_binary(&ExecuteMsg::TransferFrom {
+                owner: owner.clone(),
+                recipient: recipient.clone(),
+                amount,
+            })?,
+            funds: vec![],
+        };
+        Ok(Response::new()
+            .add_message(msg)
+            .add_attribute("action", "transfer_from")
+            .add_attribute("owner", owner)
+            .add_attribute("recipient", recipient)
+            .add_attribute("amount", amount))
     }
 }
 
@@ -131,12 +308,12 @@ pub mod query {
     use super::*;
     use crate::agent_roles::{
         msg::{AgentRole, IsAgentResponse},
-        state::AGENT_ROLE,
+        state::AGENT_ROLES,
     };
     use cosmwasm_std::Addr;
 
     pub fn is_agent(deps: Deps, role: AgentRole, agent: Addr) -> StdResult<IsAgentResponse> {
-        let is_agent = AGENT_ROLE.has_role(deps.storage, role.to_string(), agent)?;
+        let is_agent = AGENT_ROLES.has_role(deps.storage, role.to_string(), agent)?;
         Ok(IsAgentResponse { is_agent, role })
     }
 }
@@ -147,7 +324,7 @@ mod tests {
 
     use super::*;
     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
-    use cosmwasm_std::{from_json, Addr};
+    use cosmwasm_std::{from_json, Addr, Uint128};
 
     #[test]
     fn proper_initialization() {
@@ -155,6 +332,7 @@ mod tests {
         let info = mock_info("creator", &[]);
         let msg = InstantiateMsg {
             owner: Addr::unchecked("owner"),
+            token: Addr::unchecked("token"),
         };
 
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -172,6 +350,7 @@ mod tests {
 
         let msg = InstantiateMsg {
             owner: owner.clone(),
+            token: Addr::unchecked("token"),
         };
         instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
 
@@ -208,6 +387,7 @@ mod tests {
 
         let msg = InstantiateMsg {
             owner: owner.clone(),
+            token: Addr::unchecked("token"),
         };
         instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
 
@@ -248,7 +428,10 @@ mod tests {
         let owner = Addr::unchecked("owner");
         let info = mock_info(owner.as_str(), &[]);
 
-        let msg = InstantiateMsg { owner };
+        let msg = InstantiateMsg {
+            owner,
+            token: Addr::unchecked("token"),
+        };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         let unauthorized_info = mock_info("unauthorized", &[]);
@@ -267,7 +450,10 @@ mod tests {
         let owner = Addr::unchecked("owner");
         let info = mock_info(owner.as_str(), &[]);
 
-        let msg = InstantiateMsg { owner };
+        let msg = InstantiateMsg {
+            owner,
+            token: Addr::unchecked("token"),
+        };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         let unauthorized_info = mock_info("unauthorized", &[]);
@@ -289,6 +475,7 @@ mod tests {
         // Instantiate the contract
         let msg = InstantiateMsg {
             owner: owner.clone(),
+            token: Addr::unchecked("token"),
         };
         instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
 
@@ -354,5 +541,225 @@ mod tests {
             }
             assert_eq!(is_agent.role, *role);
         }
+    }
+
+    #[test]
+    fn test_burn() {
+        let mut deps = mock_dependencies();
+        let owner = Addr::unchecked("owner");
+        let token = Addr::unchecked("token");
+        let info = mock_info(owner.as_str(), &[]);
+
+        // Instantiate the contract
+        let msg = InstantiateMsg {
+            owner: owner.clone(),
+            token: token.clone(),
+        };
+        instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+
+        // Add SupplyModifier role
+        let supply_modifier = Addr::unchecked("supply_modifier");
+        execute(
+            deps.as_mut(),
+            mock_env(),
+            info.clone(),
+            ExecuteMsg::AddAgentRole {
+                role: AgentRole::SupplyModifiers,
+                agent: supply_modifier.clone(),
+            },
+        )
+        .unwrap();
+
+        // Test successful burn
+        let burn_msg = ExecuteMsg::Burn {
+            amount: Uint128::new(100),
+        };
+        let burn_info = mock_info(supply_modifier.as_str(), &[]);
+        let res = execute(deps.as_mut(), mock_env(), burn_info, burn_msg).unwrap();
+        assert_eq!(
+            res.attributes,
+            vec![
+                ("action", "burn"),
+                ("token", token.as_str()),
+                ("amount", "100"),
+            ]
+        );
+
+        // Test unauthorized burn
+        let unauthorized_info = mock_info("unauthorized", &[]);
+        let unauthorized_burn_msg = ExecuteMsg::Burn {
+            amount: Uint128::new(50),
+        };
+        let err = execute(
+            deps.as_mut(),
+            mock_env(),
+            unauthorized_info,
+            unauthorized_burn_msg,
+        )
+        .unwrap_err();
+        assert!(matches!(err, ContractError::Unauthorized {}));
+    }
+
+    #[test]
+    fn test_mint() {
+        let mut deps = mock_dependencies();
+        let owner = Addr::unchecked("owner");
+        let token = Addr::unchecked("token");
+        let info = mock_info(owner.as_str(), &[]);
+
+        // Instantiate the contract
+        let msg = InstantiateMsg {
+            owner: owner.clone(),
+            token: token.clone(),
+        };
+        instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+
+        // Add SupplyModifier role
+        let supply_modifier = Addr::unchecked("supply_modifier");
+        execute(
+            deps.as_mut(),
+            mock_env(),
+            info,
+            ExecuteMsg::AddAgentRole {
+                role: AgentRole::SupplyModifiers,
+                agent: supply_modifier.clone(),
+            },
+        )
+        .unwrap();
+
+        // Test successful mint
+        let recipient = Addr::unchecked("recipient");
+        let mint_msg = ExecuteMsg::Mint {
+            recipient: recipient.to_string(),
+            amount: Uint128::new(100),
+        };
+        let mint_info = mock_info(supply_modifier.as_str(), &[]);
+        let res = execute(deps.as_mut(), mock_env(), mint_info, mint_msg).unwrap();
+        assert_eq!(
+            res.attributes,
+            vec![
+                ("action", "mint"),
+                ("recipient", recipient.as_str()),
+                ("amount", "100"),
+            ]
+        );
+
+        // Test unauthorized mint
+        let unauthorized_info = mock_info("unauthorized", &[]);
+        let unauthorized_mint_msg = ExecuteMsg::Mint {
+            recipient: recipient.to_string(),
+            amount: Uint128::new(50),
+        };
+        let err = execute(
+            deps.as_mut(),
+            mock_env(),
+            unauthorized_info,
+            unauthorized_mint_msg,
+        )
+        .unwrap_err();
+        assert!(matches!(err, ContractError::Unauthorized {}));
+    }
+
+    #[test]
+    fn test_transfer() {
+        let mut deps = mock_dependencies();
+        let owner = Addr::unchecked("owner");
+        let token = Addr::unchecked("token");
+        let info = mock_info(owner.as_str(), &[]);
+
+        // Instantiate the contract
+        let msg = InstantiateMsg {
+            owner: owner.clone(),
+            token: token.clone(),
+        };
+        instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+        // Test successful transfer
+        let sender = Addr::unchecked("sender");
+        let recipient = Addr::unchecked("recipient");
+        let transfer_msg = ExecuteMsg::Transfer {
+            recipient: recipient.to_string(),
+            amount: Uint128::new(100),
+        };
+        let transfer_info = mock_info(sender.as_str(), &[]);
+        let res = execute(deps.as_mut(), mock_env(), transfer_info, transfer_msg).unwrap();
+        assert_eq!(
+            res.attributes,
+            vec![
+                ("action", "transfer"),
+                ("recipient", recipient.as_str()),
+                ("amount", "100"),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_transfer_from() {
+        let mut deps = mock_dependencies();
+        let owner = Addr::unchecked("owner");
+        let token = Addr::unchecked("token");
+        let info = mock_info(owner.as_str(), &[]);
+
+        // Instantiate the contract
+        let msg = InstantiateMsg {
+            owner: owner.clone(),
+            token: token.clone(),
+        };
+        instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+
+        // Add TransferManager role
+        let transfer_manager = Addr::unchecked("transfer_manager");
+        execute(
+            deps.as_mut(),
+            mock_env(),
+            info,
+            ExecuteMsg::AddAgentRole {
+                role: AgentRole::TransferManager,
+                agent: transfer_manager.clone(),
+            },
+        )
+        .unwrap();
+
+        // Test successful transfer_from
+        let owner = Addr::unchecked("token_owner");
+        let recipient = Addr::unchecked("recipient");
+        let transfer_from_msg = ExecuteMsg::TransferFrom {
+            owner: owner.to_string(),
+            recipient: recipient.to_string(),
+            amount: Uint128::new(100),
+        };
+        let transfer_from_info = mock_info(transfer_manager.as_str(), &[]);
+        let res = execute(
+            deps.as_mut(),
+            mock_env(),
+            transfer_from_info,
+            transfer_from_msg,
+        )
+        .unwrap();
+        assert_eq!(
+            res.attributes,
+            vec![
+                ("action", "transfer_from"),
+                ("owner", owner.as_str()),
+                ("recipient", recipient.as_str()),
+                ("amount", "100"),
+            ]
+        );
+
+        // Test unauthorized transfer_from
+        let unauthorized_info = mock_info("unauthorized", &[]);
+        let unauthorized_transfer_from_msg = ExecuteMsg::TransferFrom {
+            owner: owner.to_string(),
+            recipient: recipient.to_string(),
+            amount: Uint128::new(50),
+        };
+        let err = execute(
+            deps.as_mut(),
+            mock_env(),
+            unauthorized_info,
+            unauthorized_transfer_from_msg,
+        )
+        .unwrap_err();
+        assert!(matches!(err, ContractError::Unauthorized {}));
     }
 }

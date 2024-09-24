@@ -1,15 +1,44 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::Addr;
+use cosmwasm_std::{Addr, Uint128};
 
 #[cw_serde]
 pub struct InstantiateMsg {
     pub owner: Addr,
+    pub token: Addr,
 }
 
 #[cw_serde]
 pub enum ExecuteMsg {
-    AddAgentRole { role: AgentRole, agent: Addr },
-    RemoveAgentRole { role: AgentRole, agent: Addr },
+    AddAgentRole {
+        role: AgentRole,
+        agent: Addr,
+    },
+    RemoveAgentRole {
+        role: AgentRole,
+        agent: Addr,
+    },
+
+    Burn {
+        amount: Uint128,
+    },
+    BurnFrom {
+        owner: String,
+        amount: Uint128,
+    },
+    Mint {
+        recipient: String,
+        amount: Uint128,
+    },
+
+    Transfer {
+        recipient: String,
+        amount: Uint128,
+    },
+    TransferFrom {
+        owner: String,
+        recipient: String,
+        amount: Uint128,
+    },
 }
 
 #[cw_serde]
