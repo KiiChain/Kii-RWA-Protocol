@@ -2,7 +2,6 @@
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{to_json_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
-// use cw2::set_contract_version;
 
 use crate::agent_roles::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::agent_roles::ContractError;
