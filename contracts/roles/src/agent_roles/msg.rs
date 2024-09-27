@@ -4,7 +4,6 @@ use cosmwasm_std::{Addr, Uint128};
 #[cw_serde]
 pub struct InstantiateMsg {
     pub owner: Addr,
-    pub token: Addr,
 }
 
 #[cw_serde]
@@ -18,6 +17,9 @@ pub enum ExecuteMsg {
         agent: Addr,
     },
 
+    SetTokenRegistry {
+        token_registry: Addr,
+    },
     Burn {
         amount: Uint128,
     },

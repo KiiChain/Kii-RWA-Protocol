@@ -34,7 +34,6 @@ pub fn instantiate(
 ) -> Result<Response, ContractError> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     OWNER.save(deps.storage, &msg.owner)?;
-    TOKEN.save(deps.storage, &msg.token)?;
 
     Ok(Response::new()
         .add_attribute("method", "instantiate")
@@ -78,6 +77,9 @@ pub fn execute(
             recipient,
             amount,
         } => execute::transfer_from(deps, info, owner, recipient, amount),
+        ExecuteMsg::SetTokenRegistry { token_registry } => {
+            execute::set_token_registry(deps, info, token_registry)
+        }
     }
 }
 
@@ -141,6 +143,23 @@ pub mod execute {
             .add_attribute("role", role.to_string())
             .add_attribute("agent", agent))
     }
+
+    pub fn set_token_registry(
+        deps: DepsMut,
+        info: MessageInfo,
+        token_registry: Addr,
+    ) -> Result<Response, ContractError> {
+        let owner = OWNER.load(deps.storage)?;
+        if info.sender != owner {
+            return Err(ContractError::Unauthorized {});
+        }
+        TOKEN.save(deps.storage, &token_registry)?;
+
+        Ok(Response::new()
+            .add_attribute("action", "set_token_registry")
+            .add_attribute("new_address", token_registry.to_string()))
+    }
+
     pub fn burn(
         deps: DepsMut,
         info: MessageInfo,
@@ -153,10 +172,13 @@ pub mod execute {
         )? {
             return Err(ContractError::Unauthorized {});
         }
-        let token = TOKEN.load(deps.storage)?;
+        let token = TOKEN
+            .load(deps.storage)
+            .map_err(|_| ContractError::UninitializedAddress("token".to_string()))?;
+
         let msg = WasmMsg::Execute {
             contract_addr: token.to_string(),
-            msg: to_json_binary(&ExecuteMsg::Burn { amount })?,
+            msg: to_json_binary(&cw20_base::ExecuteMsg::Burn { amount })?,
             funds: vec![],
         };
         Ok(Response::new()
@@ -179,10 +201,13 @@ pub mod execute {
         )? {
             return Err(ContractError::Unauthorized {});
         }
-        let token = TOKEN.load(deps.storage)?;
+        let token = TOKEN
+            .load(deps.storage)
+            .map_err(|_| ContractError::UninitializedAddress("token".to_string()))?;
+
         let msg = WasmMsg::Execute {
             contract_addr: token.to_string(),
-            msg: to_json_binary(&ExecuteMsg::BurnFrom {
+            msg: to_json_binary(&cw20_base::ExecuteMsg::BurnFrom {
                 owner: owner.clone(),
                 amount,
             })?,
@@ -208,10 +233,13 @@ pub mod execute {
         )? {
             return Err(ContractError::Unauthorized {});
         }
-        let token = TOKEN.load(deps.storage)?;
+        let token = TOKEN
+            .load(deps.storage)
+            .map_err(|_| ContractError::UninitializedAddress("token".to_string()))?;
+
         let msg = WasmMsg::Execute {
             contract_addr: token.to_string(),
-            msg: to_json_binary(&ExecuteMsg::Mint {
+            msg: to_json_binary(&cw20_base::ExecuteMsg::Mint {
                 recipient: recipient.clone(),
                 amount,
             })?,
@@ -230,8 +258,6 @@ pub mod execute {
         recipient: String,
         amount: Uint128,
     ) -> Result<Response, ContractError> {
-        let token = TOKEN.load(deps.storage)?;
-
         // Check if transfers are currently allowed
         if !is_transfer_allowed(deps.as_ref())? {
             return Err(ContractError::TransfersDisabled {});
@@ -241,9 +267,14 @@ pub mod execute {
         if !can_receive(deps.as_ref(), &recipient)? {
             return Err(ContractError::Unauthorized {});
         }
+
+        let token = TOKEN
+            .load(deps.storage)
+            .map_err(|_| ContractError::UninitializedAddress("token".to_string()))?;
+
         let msg = WasmMsg::Execute {
             contract_addr: token.to_string(),
-            msg: to_json_binary(&ExecuteMsg::Transfer {
+            msg: to_json_binary(&cw20_base::ExecuteMsg::Transfer {
                 recipient: recipient.clone(),
                 amount,
             })?,
@@ -285,10 +316,13 @@ pub mod execute {
         if !can_receive(deps.as_ref(), &recipient)? {
             return Err(ContractError::Unauthorized {});
         }
-        let token = TOKEN.load(deps.storage)?;
+        let token = TOKEN
+            .load(deps.storage)
+            .map_err(|_| ContractError::UninitializedAddress("token".to_string()))?;
+
         let msg = WasmMsg::Execute {
             contract_addr: token.to_string(),
-            msg: to_json_binary(&ExecuteMsg::TransferFrom {
+            msg: to_json_binary(&cw20_base::ExecuteMsg::TransferFrom {
                 owner: owner.clone(),
                 recipient: recipient.clone(),
                 amount,
@@ -324,7 +358,7 @@ mod tests {
 
     use super::*;
     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
-    use cosmwasm_std::{from_json, Addr, Uint128};
+    use cosmwasm_std::{attr, from_json, Addr, Uint128};
 
     #[test]
     fn proper_initialization() {
@@ -332,7 +366,6 @@ mod tests {
         let info = mock_info("creator", &[]);
         let msg = InstantiateMsg {
             owner: Addr::unchecked("owner"),
-            token: Addr::unchecked("token"),
         };
 
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -350,7 +383,6 @@ mod tests {
 
         let msg = InstantiateMsg {
             owner: owner.clone(),
-            token: Addr::unchecked("token"),
         };
         instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
 
@@ -387,7 +419,6 @@ mod tests {
 
         let msg = InstantiateMsg {
             owner: owner.clone(),
-            token: Addr::unchecked("token"),
         };
         instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
 
@@ -428,10 +459,7 @@ mod tests {
         let owner = Addr::unchecked("owner");
         let info = mock_info(owner.as_str(), &[]);
 
-        let msg = InstantiateMsg {
-            owner,
-            token: Addr::unchecked("token"),
-        };
+        let msg = InstantiateMsg { owner };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         let unauthorized_info = mock_info("unauthorized", &[]);
@@ -450,10 +478,7 @@ mod tests {
         let owner = Addr::unchecked("owner");
         let info = mock_info(owner.as_str(), &[]);
 
-        let msg = InstantiateMsg {
-            owner,
-            token: Addr::unchecked("token"),
-        };
+        let msg = InstantiateMsg { owner };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         let unauthorized_info = mock_info("unauthorized", &[]);
@@ -475,7 +500,6 @@ mod tests {
         // Instantiate the contract
         let msg = InstantiateMsg {
             owner: owner.clone(),
-            token: Addr::unchecked("token"),
         };
         instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
 
@@ -544,18 +568,57 @@ mod tests {
     }
 
     #[test]
-    fn test_burn() {
+    fn test_set_token_registry() {
         let mut deps = mock_dependencies();
         let owner = Addr::unchecked("owner");
-        let token = Addr::unchecked("token");
         let info = mock_info(owner.as_str(), &[]);
 
         // Instantiate the contract
         let msg = InstantiateMsg {
             owner: owner.clone(),
-            token: token.clone(),
         };
         instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+
+        let new_registry = Addr::unchecked("new_token_registry");
+        let msg = ExecuteMsg::SetTokenRegistry {
+            token_registry: new_registry.clone(),
+        };
+
+        // Test with authorized user
+        let info = mock_info(owner.as_str(), &[]);
+        let res = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
+        assert_eq!(
+            res.attributes,
+            vec![
+                attr("action", "set_token_registry"),
+                attr("new_address", new_registry.to_string()),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_burn() {
+        let mut deps = mock_dependencies();
+        let owner = Addr::unchecked("owner");
+        let info = mock_info(owner.as_str(), &[]);
+
+        // Instantiate the contract
+        let msg = InstantiateMsg {
+            owner: owner.clone(),
+        };
+        instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+
+        // set token registry
+        let new_registry = Addr::unchecked("new_token_registry");
+        let info = mock_info(owner.as_str(), &[]);
+        let _ = execute(
+            deps.as_mut(),
+            mock_env(),
+            info.clone(),
+            ExecuteMsg::SetTokenRegistry {
+                token_registry: new_registry.clone(),
+            },
+        );
 
         // Add SupplyModifier role
         let supply_modifier = Addr::unchecked("supply_modifier");
@@ -580,7 +643,7 @@ mod tests {
             res.attributes,
             vec![
                 ("action", "burn"),
-                ("token", token.as_str()),
+                ("token", "new_token_registry"),
                 ("amount", "100"),
             ]
         );
@@ -604,15 +667,26 @@ mod tests {
     fn test_mint() {
         let mut deps = mock_dependencies();
         let owner = Addr::unchecked("owner");
-        let token = Addr::unchecked("token");
+
         let info = mock_info(owner.as_str(), &[]);
 
         // Instantiate the contract
         let msg = InstantiateMsg {
             owner: owner.clone(),
-            token: token.clone(),
         };
         instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+
+        // set token registry
+        let new_registry = Addr::unchecked("new_token_registry");
+        let info = mock_info(owner.as_str(), &[]);
+        let _ = execute(
+            deps.as_mut(),
+            mock_env(),
+            info.clone(),
+            ExecuteMsg::SetTokenRegistry {
+                token_registry: new_registry.clone(),
+            },
+        );
 
         // Add SupplyModifier role
         let supply_modifier = Addr::unchecked("supply_modifier");
@@ -664,15 +738,25 @@ mod tests {
     fn test_transfer() {
         let mut deps = mock_dependencies();
         let owner = Addr::unchecked("owner");
-        let token = Addr::unchecked("token");
         let info = mock_info(owner.as_str(), &[]);
 
         // Instantiate the contract
         let msg = InstantiateMsg {
             owner: owner.clone(),
-            token: token.clone(),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+        // set token registry
+        let new_registry = Addr::unchecked("new_token_registry");
+        let info = mock_info(owner.as_str(), &[]);
+        let _ = execute(
+            deps.as_mut(),
+            mock_env(),
+            info.clone(),
+            ExecuteMsg::SetTokenRegistry {
+                token_registry: new_registry.clone(),
+            },
+        );
 
         // Test successful transfer
         let sender = Addr::unchecked("sender");
@@ -697,15 +781,25 @@ mod tests {
     fn test_transfer_from() {
         let mut deps = mock_dependencies();
         let owner = Addr::unchecked("owner");
-        let token = Addr::unchecked("token");
         let info = mock_info(owner.as_str(), &[]);
 
         // Instantiate the contract
         let msg = InstantiateMsg {
             owner: owner.clone(),
-            token: token.clone(),
         };
         instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+
+        // set token registry
+        let new_registry = Addr::unchecked("new_token_registry");
+        let info = mock_info(owner.as_str(), &[]);
+        let _ = execute(
+            deps.as_mut(),
+            mock_env(),
+            info.clone(),
+            ExecuteMsg::SetTokenRegistry {
+                token_registry: new_registry.clone(),
+            },
+        );
 
         // Add TransferManager role
         let transfer_manager = Addr::unchecked("transfer_manager");
