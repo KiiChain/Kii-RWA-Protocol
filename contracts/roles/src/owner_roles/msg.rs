@@ -4,9 +4,6 @@ use cosmwasm_std::{Addr, Uint128};
 #[cw_serde]
 pub struct InstantiateMsg {
     pub owner: Addr,
-    pub compliance_registry: Addr,
-    pub claim_topics_registry: Addr,
-    pub trusted_issuers_registry: Addr,
 }
 
 #[cw_serde]

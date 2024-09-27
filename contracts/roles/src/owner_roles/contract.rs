@@ -3,10 +3,7 @@ use cosmwasm_std::entry_point;
 use cosmwasm_std::{to_json_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
 
-use super::{
-    state::{CLAIM_TOPICS_REGISTRY, COMPLIANCE_REGISTRY, OWNER, TRUSTED_ISSUERS_REGISTRY},
-    ContractError, ExecuteMsg, InstantiateMsg, QueryMsg,
-};
+use super::{state::OWNER, ContractError, ExecuteMsg, InstantiateMsg, QueryMsg};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:owner-roles";
@@ -33,9 +30,6 @@ pub fn instantiate(
 ) -> Result<Response, ContractError> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     OWNER.save(deps.storage, &msg.owner)?;
-    COMPLIANCE_REGISTRY.save(deps.storage, &msg.compliance_registry)?;
-    CLAIM_TOPICS_REGISTRY.save(deps.storage, &msg.claim_topics_registry)?;
-    TRUSTED_ISSUERS_REGISTRY.save(deps.storage, &msg.trusted_issuers_registry)?;
 
     Ok(Response::new()
         .add_attribute("method", "instantiate")
@@ -233,7 +227,9 @@ pub mod execute {
             return Err(ContractError::Unauthorized {});
         }
 
-        let trusted_issuers_registry = TRUSTED_ISSUERS_REGISTRY.load(deps.storage)?;
+        let trusted_issuers_registry = TRUSTED_ISSUERS_REGISTRY
+            .load(deps.storage)
+            .map_err(|_| ContractError::UninitializedAddress("trusted_issuers".to_string()))?;
 
         let msg = WasmMsg::Execute {
             contract_addr: trusted_issuers_registry.to_string(),
@@ -264,7 +260,9 @@ pub mod execute {
             return Err(ContractError::Unauthorized {});
         }
 
-        let trusted_issuers_registry = TRUSTED_ISSUERS_REGISTRY.load(deps.storage)?;
+        let trusted_issuers_registry = TRUSTED_ISSUERS_REGISTRY
+            .load(deps.storage)
+            .map_err(|_| ContractError::UninitializedAddress("trusted_issuers".to_string()))?;
 
         let msg = WasmMsg::Execute {
             contract_addr: trusted_issuers_registry.to_string(),
@@ -293,7 +291,9 @@ pub mod execute {
             return Err(ContractError::Unauthorized {});
         }
 
-        let claim_topics_registry = CLAIM_TOPICS_REGISTRY.load(deps.storage)?;
+        let claim_topics_registry = CLAIM_TOPICS_REGISTRY
+            .load(deps.storage)
+            .map_err(|_| ContractError::UninitializedAddress("claims_topics".to_string()))?;
 
         let msg = WasmMsg::Execute {
             contract_addr: claim_topics_registry.to_string(),
@@ -321,7 +321,9 @@ pub mod execute {
             return Err(ContractError::Unauthorized {});
         }
 
-        let claim_topics_registry = CLAIM_TOPICS_REGISTRY.load(deps.storage)?;
+        let claim_topics_registry = CLAIM_TOPICS_REGISTRY
+            .load(deps.storage)
+            .map_err(|_| ContractError::UninitializedAddress("claims_topics".to_string()))?;
 
         let msg = WasmMsg::Execute {
             contract_addr: claim_topics_registry.to_string(),
@@ -349,7 +351,9 @@ pub mod execute {
             return Err(ContractError::Unauthorized {});
         }
 
-        let trusted_issuers_registry = TRUSTED_ISSUERS_REGISTRY.load(deps.storage)?;
+        let trusted_issuers_registry = TRUSTED_ISSUERS_REGISTRY
+            .load(deps.storage)
+            .map_err(|_| ContractError::UninitializedAddress("trusted_issuers".to_string()))?;
 
         let msg = WasmMsg::Execute {
             contract_addr: trusted_issuers_registry.to_string(),
@@ -398,9 +402,6 @@ mod tests {
         let info = mock_info("creator", &[]);
         let msg = InstantiateMsg {
             owner: Addr::unchecked("owner"),
-            claim_topics_registry: Addr::unchecked("claim_topics_registry"),
-            compliance_registry: Addr::unchecked("compliance_registry"),
-            trusted_issuers_registry: Addr::unchecked("trusted_issuers_registry"),
         };
 
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -421,9 +422,6 @@ mod tests {
         // Instantiate the contract
         let msg = InstantiateMsg {
             owner: owner.clone(),
-            claim_topics_registry: Addr::unchecked("claim_topics_registry"),
-            compliance_registry: Addr::unchecked("compliance_registry"),
-            trusted_issuers_registry: Addr::unchecked("trusted_issuers_registry"),
         };
         instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
 
@@ -464,9 +462,6 @@ mod tests {
         // Instantiate the contract
         let msg = InstantiateMsg {
             owner: owner.clone(),
-            claim_topics_registry: Addr::unchecked("claim_topics_registry"),
-            compliance_registry: Addr::unchecked("compliance_registry"),
-            trusted_issuers_registry: Addr::unchecked("trusted_issuers_registry"),
         };
         instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
 
@@ -512,9 +507,6 @@ mod tests {
         // Instantiate the contract
         let msg = InstantiateMsg {
             owner: owner.clone(),
-            claim_topics_registry: Addr::unchecked("claim_topics_registry"),
-            compliance_registry: Addr::unchecked("compliance_registry"),
-            trusted_issuers_registry: Addr::unchecked("trusted_issuers_registry"),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
@@ -538,9 +530,6 @@ mod tests {
         // Instantiate the contract
         let msg = InstantiateMsg {
             owner: owner.clone(),
-            claim_topics_registry: Addr::unchecked("claim_topics_registry"),
-            compliance_registry: Addr::unchecked("compliance_registry"),
-            trusted_issuers_registry: Addr::unchecked("trusted_issuers_registry"),
         };
         instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
 
@@ -571,9 +560,6 @@ mod tests {
         // Instantiate the contract
         let msg = InstantiateMsg {
             owner: owner.clone(),
-            claim_topics_registry: Addr::unchecked("claim_topics_registry"),
-            compliance_registry: Addr::unchecked("compliance_registry"),
-            trusted_issuers_registry: Addr::unchecked("trusted_issuers_registry"),
         };
         instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
 
@@ -640,9 +626,6 @@ mod tests {
         // Instantiate the contract
         let msg = InstantiateMsg {
             owner: owner.clone(),
-            claim_topics_registry: Addr::unchecked("claim_topics_registry"),
-            compliance_registry: Addr::unchecked("compliance_registry"),
-            trusted_issuers_registry: Addr::unchecked("trusted_issuers_registry"),
         };
         instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
 
@@ -679,9 +662,6 @@ mod tests {
         // Instantiate the contract
         let msg = InstantiateMsg {
             owner: owner.clone(),
-            claim_topics_registry: Addr::unchecked("claim_topics_registry"),
-            compliance_registry: Addr::unchecked("compliance_registry"),
-            trusted_issuers_registry: Addr::unchecked("trusted_issuers_registry"),
         };
         instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
 
@@ -719,9 +699,6 @@ mod tests {
         // Instantiate the contract
         let msg = InstantiateMsg {
             owner: owner.clone(),
-            claim_topics_registry: Addr::unchecked("claim_topics_registry"),
-            compliance_registry: Addr::unchecked("compliance_registry"),
-            trusted_issuers_registry: Addr::unchecked("trusted_issuers_registry"),
         };
         instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
 
@@ -759,11 +736,22 @@ mod tests {
         // Instantiate the contract
         let msg = InstantiateMsg {
             owner: owner.clone(),
-            claim_topics_registry: Addr::unchecked("claim_topics_registry"),
-            compliance_registry: Addr::unchecked("compliance_registry"),
-            trusted_issuers_registry: Addr::unchecked("trusted_issuers_registry"),
         };
         instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+
+        // add registryAddress role
+        let msg = ExecuteMsg::AddOwnerRole {
+            role: OwnerRole::RegistryAddressSetter,
+            owner: owner.clone(),
+        };
+        execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+
+        // set claim topics registry
+        let new_registry = Addr::unchecked("new_claim_topics_registry");
+        let msg = ExecuteMsg::SetClaimTopicsRegistry {
+            claim_topic_registry: new_registry.clone(),
+        };
+        let _ = execute(deps.as_mut(), mock_env(), info.clone(), msg.clone()).unwrap();
 
         // Add ClaimRegistryManager role to claim_manager
         let msg = ExecuteMsg::AddOwnerRole {
@@ -799,11 +787,23 @@ mod tests {
         // Instantiate the contract
         let msg = InstantiateMsg {
             owner: owner.clone(),
-            claim_topics_registry: Addr::unchecked("claim_topics_registry"),
-            compliance_registry: Addr::unchecked("compliance_registry"),
-            trusted_issuers_registry: Addr::unchecked("trusted_issuers_registry"),
         };
         instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+
+        // add registryAddress role
+        let msg = ExecuteMsg::AddOwnerRole {
+            role: OwnerRole::RegistryAddressSetter,
+            owner: owner.clone(),
+        };
+        execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+
+        // set claim topics registry
+        let new_registry = Addr::unchecked("new_claim_topics_registry");
+        let msg = ExecuteMsg::SetClaimTopicsRegistry {
+            claim_topic_registry: new_registry.clone(),
+        };
+
+        let _ = execute(deps.as_mut(), mock_env(), info.clone(), msg.clone()).unwrap();
 
         // Add ClaimRegistryManager role to claim_manager
         let msg = ExecuteMsg::AddOwnerRole {
@@ -838,11 +838,23 @@ mod tests {
         // Instantiate the contract
         let msg = InstantiateMsg {
             owner: owner.clone(),
-            claim_topics_registry: Addr::unchecked("claim_topics_registry"),
-            compliance_registry: Addr::unchecked("compliance_registry"),
-            trusted_issuers_registry: Addr::unchecked("trusted_issuers_registry"),
         };
         instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+
+        // add registryAddress role
+        let msg = ExecuteMsg::AddOwnerRole {
+            role: OwnerRole::RegistryAddressSetter,
+            owner: owner.clone(),
+        };
+        execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+
+        // set trusted issuer registry
+        let new_registry = Addr::unchecked("new_trusted_issuer_registry");
+        let msg = ExecuteMsg::SetTrustedIssuersRegistry {
+            trusted_issuer_registry: new_registry,
+        };
+
+        let _ = execute(deps.as_mut(), mock_env(), info.clone(), msg.clone()).unwrap();
 
         // Add IssuersRegistryManager role to issuer_manager
         let msg = ExecuteMsg::AddOwnerRole {
@@ -883,11 +895,23 @@ mod tests {
         // Instantiate the contract
         let msg = InstantiateMsg {
             owner: owner.clone(),
-            claim_topics_registry: Addr::unchecked("claim_topics_registry"),
-            compliance_registry: Addr::unchecked("compliance_registry"),
-            trusted_issuers_registry: Addr::unchecked("trusted_issuers_registry"),
         };
         instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+
+        // add registryAddress role
+        let msg = ExecuteMsg::AddOwnerRole {
+            role: OwnerRole::RegistryAddressSetter,
+            owner: owner.clone(),
+        };
+        execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+
+        // set trusted issuer registry
+        let new_registry = Addr::unchecked("new_trusted_issuer_registry");
+        let msg = ExecuteMsg::SetTrustedIssuersRegistry {
+            trusted_issuer_registry: new_registry,
+        };
+
+        let _ = execute(deps.as_mut(), mock_env(), info.clone(), msg.clone()).unwrap();
 
         // Add IssuersRegistryManager role to issuer_manager
         let msg = ExecuteMsg::AddOwnerRole {
@@ -925,11 +949,23 @@ mod tests {
         // Instantiate the contract
         let msg = InstantiateMsg {
             owner: owner.clone(),
-            claim_topics_registry: Addr::unchecked("claim_topics_registry"),
-            compliance_registry: Addr::unchecked("compliance_registry"),
-            trusted_issuers_registry: Addr::unchecked("trusted_issuers_registry"),
         };
         instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+
+        // add registryAddress role
+        let msg = ExecuteMsg::AddOwnerRole {
+            role: OwnerRole::RegistryAddressSetter,
+            owner: owner.clone(),
+        };
+        execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+
+        // set trusted issuer registry
+        let new_registry = Addr::unchecked("new_trusted_issuer_registry");
+        let msg = ExecuteMsg::SetTrustedIssuersRegistry {
+            trusted_issuer_registry: new_registry,
+        };
+
+        let _ = execute(deps.as_mut(), mock_env(), info.clone(), msg.clone()).unwrap();
 
         // Add IssuersRegistryManager role to issuer_manager
         let msg = ExecuteMsg::AddOwnerRole {
