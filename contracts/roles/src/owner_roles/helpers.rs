@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use cosmwasm_std::{to_json_binary, Addr, CosmosMsg, StdResult, WasmMsg};
 
-use crate::msg::ExecuteMsg;
+use crate::owner_roles::msg::ExecuteMsg;
 
 /// CwTemplateContract is a wrapper around Addr that provides a lot of helpers
 /// for working with this.
