@@ -1007,6 +1007,7 @@ dependencies = [
  "cw-multi-test",
  "cw-storage-plus",
  "cw2",
+ "roles",
  "schemars",
  "serde",
  "thiserror",
