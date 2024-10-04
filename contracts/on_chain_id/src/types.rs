@@ -43,19 +43,18 @@ enum KeyPurpose {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 enum ClaimTopic {
 
-    // Know Your Customer verification
-    KYC,
+    // You're a person and not a business
+    BiometricTopic,
 
 
-    // Anti-Money Laundering check
-    AML,
+    // You have a physical address or reference point
+    ResidenceTopic,
 
-    // Accredited investor status
-    AccreditedInvestor,
+    RegistryTopic,
 
-    // Educational qualification
-    UniversityDegree,
+    // TODO: social media profiles, blogs, etc.
+    ProfileTopic,
 
-    // Verified social media account
-    SocialMediaVerification
+    // TODO: real name, business name, nick name, brand name, alias, etc.
+    LabelTopic
 }
