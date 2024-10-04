@@ -13,7 +13,7 @@ pub struct Identity {
 pub struct Key {
     pub purpose: u64,
     pub key_type: u64,
-    pub key: Vec<u8>,
+    pub key: Binary,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
