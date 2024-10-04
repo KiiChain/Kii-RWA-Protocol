@@ -1,5 +1,6 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use cosmwasm_std::Binary;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Identity {
@@ -17,10 +18,11 @@ pub struct Key {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Claim {
-    pub topic: u64,
-    pub scheme: u64,
-    pub issuer: String,
-    pub signature: Vec<u8>,
-    pub data: Vec<u8>,
-    pub uri: String,
+    id: String,
+    topic: String,
+    scheme: u8,
+    issuer: String,
+    signature: Binary,
+    data: Binary,
+    uri: String,
 }
