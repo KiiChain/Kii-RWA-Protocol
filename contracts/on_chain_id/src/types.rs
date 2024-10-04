@@ -1,28 +1,61 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use cosmwasm_std::Binary;
+use cosmwasm_std::{Addr, Binary, Uint256};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Identity {
-    pub address: String,
+    pub address: Addr,
     pub keys: Vec<Key>,
     pub claims: Vec<Claim>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Key {
-    pub purpose: u64,
-    pub key_type: u64,
+    pub purpose: KeyPurpose,
     pub key: Binary,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Claim {
-    id: String,
-    topic: String,
-    scheme: u8,
-    issuer: String,
+    topic: ClaimTopic,
+    issuer: Addr,
     signature: Binary,
     data: Binary,
     uri: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+enum KeyPurpose {
+
+    // 1: MANAGEMENT keys, which can manage the identity
+    ManagementKey,
+
+    // 2: EXECUTION keys, which perform actions in this identities name (signing, logins, transactions, etc.)
+    ExecutionKey,
+
+    // 3: CLAIM signer keys, used to sign claims on other identities which need to be revokable.
+    ClaimSignerKey,
+    
+    // 4: ENCRYPTION keys, used to encrypt data e.g. hold in claims.
+    EncryptionKey
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+enum ClaimTopic {
+
+    // Know Your Customer verification
+    KYC,
+
+
+    // Anti-Money Laundering check
+    AML,
+
+    // Accredited investor status
+    AccreditedInvestor,
+
+    // Educational qualification
+    UniversityDegree,
+
+    // Verified social media account
+    SocialMediaVerification
 }
