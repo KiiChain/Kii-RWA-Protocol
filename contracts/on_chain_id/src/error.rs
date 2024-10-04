@@ -8,6 +8,37 @@ pub enum ContractError {
 
     #[error("Unauthorized")]
     Unauthorized {},
-    // Add any other custom errors you like here.
-    // Look at https://docs.rs/thiserror/1.0.21/thiserror/ for details.
+
+    #[error("Address is invalid")]
+    InvalidAddress {},
+
+    #[error("Invalid key purpose")]
+    InvalidKeyPurpose {},
+
+    #[error("Invalid claim topic")]
+    InvalidClaimTopic {},
+
+    #[error("Invalid issuer signature")]
+    InvalidIssuerSignature {},
+
+    #[error("Error while serializing data")]
+    SerializationError {},
+
+    #[error("Key not found")]
+    KeyNotFound {},
+
+    #[error("Key already exists")]
+    KeyAlreadyExists,
+
+    #[error("Invalid claim ID")]
+    InvalidClaimId {},
+
+    #[error("Claim not found")]
+    ClaimNotFound {},
+
+    #[error("Claim already exists")]
+    ClaimAlreadyExists {},
+
+    #[error("Identity not found")]
+    IdentityNotFound {},
 }

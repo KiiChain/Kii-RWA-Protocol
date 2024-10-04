@@ -1,18 +1,21 @@
-use cosmwasm_schema::{cw_serde, QueryResponses, Binary};
-use crate::types::{Identity, Key, Claim};
-
+use cosmwasm_schema::{cw_serde, QueryResponses};
+use cosmwasm_std::{Binary, Addr};
+use crate::state::{Key, Claim};
 
 #[cw_serde]
-pub struct InstantiateMsg {}
+pub struct InstantiateMsg {
+    pub owner: Addr,
+}
 
 #[cw_serde]
 pub enum ExecuteMsg {
     AddKey {
+        key_owner: String,
         key_type: String,
-        key: String,
     },
     RevokeKey {
-        key: String,
+        key_owner: String,
+        key_type: String,
     },
     AddClaim {
         claim: Claim,
@@ -21,36 +24,37 @@ pub enum ExecuteMsg {
     RemoveClaim {
         claim_id: String,
     },
-    ChangeOwner {
-        new_owner: String,
-    },
-    Execute {
-        to: String,
-        msg: Binary,
-    },
 }
 
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum QueryMsg {
+    #[returns(Key)]
     GetKey {
+        key_owner: String,
         key_type: String,
     },
-    GetKeysByType {
-        key_type: String,
-    },
+    #[returns(Claim)]
     GetClaim {
+        key_owner: String,
         claim_id: String,
     },
+    #[returns(Vec<String>)]
     GetClaimIdsByTopic {
+        key_owner: String,
         topic: String,
     },
+    #[returns(Vec<Claim>)]
     GetClaimsByIssuer {
+        key_owner: String,
         issuer: String,
     },
+    #[returns(bool)]
     VerifyClaim {
+        key_owner: String,
         claim_id: String,
         trusted_issuers_registry: String,
     },
+    #[returns(Addr)]
     GetOwner {},
 }
