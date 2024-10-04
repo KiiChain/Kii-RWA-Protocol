@@ -22,10 +22,13 @@ thiserror = "1.0.4"
 
 cw1 = { path = "packages/cw1", version = "2.0.0-rc.0" }
 cw20 = { path = "packages/cw20", version = "2.0.0-rc.0" }
-cw20-base = { path = "contracts/cw20-base", version = "2.0.0-rc.0", features = ["library"] }
+cw20-base = { path = "contracts/cw20-base", version = "2.0.0-rc.0", features = [
+    "library",
+] }
 cw3 = { path = "packages/cw3", version = "2.0.0-rc.0" }
 cw4 = { path = "packages/cw4", version = "2.0.0-rc.0" }
 easy-addr = { path = "packages/easy-addr" }
+utils = { path = "packages/utils" }
 
 [profile.release.package.cw1-subkeys]
 codegen-units = 1

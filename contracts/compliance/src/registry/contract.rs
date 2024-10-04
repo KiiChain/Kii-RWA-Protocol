@@ -7,7 +7,7 @@ use roles::owner_roles::msg::OwnerRole;
 use crate::registry::error::ContractError;
 use crate::registry::msg::{ExecuteMsg, InstantiateMsg};
 use crate::registry::state::OWNER_ROLES_ADDRESS;
-use crate::QueryMsg;
+use utils::QueryMsg;
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:compliance";
@@ -412,7 +412,7 @@ mod tests {
         // Mock the module query
         deps.querier.update_wasm(|query| match query {
             cosmwasm_std::WasmQuery::Smart { msg, .. } => {
-                let parsed: crate::QueryMsg = from_json(msg).unwrap();
+                let parsed: utils::QueryMsg = from_json(msg).unwrap();
                 match parsed {
                     QueryMsg::CheckTokenCompliance {
                         token_address: _,

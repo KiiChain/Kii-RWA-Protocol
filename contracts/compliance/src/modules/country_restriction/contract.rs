@@ -7,7 +7,7 @@ use roles::owner_roles::msg::OwnerRole;
 
 use crate::modules::country_restriction::msg::{ExecuteMsg, InstantiateMsg};
 use crate::modules::country_restriction::ContractError;
-use crate::QueryMsg;
+use utils::QueryMsg;
 
 use super::state::{IDENTITY_ADDRESS, OWNER_ROLES_ADDRESS};
 
