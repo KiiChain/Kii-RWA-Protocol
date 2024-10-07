@@ -59,6 +59,15 @@ pub enum ContractError {
 
     #[error("Invalid signature: {reason}")]
     InvalidSignature { reason: String },
+
+    #[error("Invalid contract version: {expected} != {actual}")]
+    InvalidContract { expected: String, actual: String },
+
+    #[error("Already migrated: {current_version} >= {new_version}")]
+    AlreadyMigrated {
+        current_version: String,
+        new_version: String,
+    },
 }
 
 impl From<ContractError> for StdError {

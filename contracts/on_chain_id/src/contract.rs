@@ -1,6 +1,7 @@
+#[cfg(not(feature = "library"))]
+use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    entry_point, to_json_binary, Addr, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdError,
-    StdResult,
+    to_json_binary, Addr, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult,
 };
 use cw2::set_contract_version;
 use std::str::FromStr;
@@ -8,7 +9,7 @@ use std::str::FromStr;
 use crate::claim_management::{execute_add_claim, execute_remove_claim};
 use crate::error::ContractError;
 use crate::key_management::{execute_add_key, execute_remove_key};
-use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
+use crate::msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
 use crate::state::{Claim, ClaimTopic, Key, KeyType, CLAIMS, KEYS, OWNER};
 
 // version info for migration info
@@ -100,6 +101,37 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         } => to_json_binary(&verify_claim(deps, claim_id, trusted_issuers_registry)?),
         QueryMsg::GetOwner {} => to_json_binary(&query_owner(deps)?),
     }
+}
+
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, ContractError> {
+    let current_version = cw2::get_contract_version(deps.storage)?;
+
+    if current_version.contract != CONTRACT_NAME {
+        return Err(ContractError::InvalidContract {
+            expected: CONTRACT_NAME.to_string(),
+            actual: current_version.contract,
+        });
+    }
+
+    let new_version = CONTRACT_VERSION.parse::<semver::Version>().unwrap();
+    let stored_version = current_version.version.parse::<semver::Version>().unwrap();
+
+    if stored_version >= new_version {
+        return Err(ContractError::AlreadyMigrated {
+            current_version: stored_version.to_string(),
+            new_version: new_version.to_string(),
+        });
+    }
+
+    // Perform any necessary state migrations here
+
+    set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+
+    Ok(Response::new()
+        .add_attribute("action", "migrate")
+        .add_attribute("from_version", current_version.version)
+        .add_attribute("to_version", CONTRACT_VERSION))
 }
 
 fn query_key(deps: Deps, key_owner: String, key_type: String) -> StdResult<Key> {
