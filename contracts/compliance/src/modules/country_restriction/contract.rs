@@ -436,9 +436,4 @@ mod tests {
             .unwrap();
         assert!(!restriction.active);
     }
-
-    #[test]
-    fn check_compliance() {
-        assert!(true);
-    }
 }
