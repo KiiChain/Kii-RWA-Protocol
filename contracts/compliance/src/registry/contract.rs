@@ -245,7 +245,7 @@ pub mod query {
 mod tests {
 
     use super::*;
-    use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
+    use cosmwasm_std::testing::{message_info, mock_dependencies, mock_env};
     use cosmwasm_std::{from_json, Addr, ContractResult, SystemResult, Uint128};
 
     // Helper function to instantiate the contract
@@ -253,7 +253,7 @@ mod tests {
         let msg = InstantiateMsg {
             owner_roles_address: Addr::unchecked("owner_roles"),
         };
-        let info = mock_info("creator", &[]);
+        let info = message_info(&Addr::unchecked("creator"), &[]);
         let res = instantiate(deps, mock_env(), info, msg).unwrap();
         assert_eq!(0, res.messages.len());
     }
@@ -289,7 +289,7 @@ mod tests {
             }
             _ => panic!("Unexpected query type"),
         });
-        let info = mock_info("admin", &[]);
+        let info = message_info(&Addr::unchecked("admin"), &[]);
         let msg = ExecuteMsg::AddComplianceModule {
             token_address: Addr::unchecked("token"),
             module_address: Addr::unchecked("module"),
@@ -322,7 +322,7 @@ mod tests {
             _ => panic!("Unexpected query type"),
         });
 
-        let info = mock_info("admin", &[]);
+        let info = message_info(&Addr::unchecked("admin"), &[]);
         let add_msg = ExecuteMsg::AddComplianceModule {
             token_address: Addr::unchecked("token"),
             module_address: Addr::unchecked("module"),
@@ -361,7 +361,7 @@ mod tests {
             _ => panic!("Unexpected query type"),
         });
 
-        let info = mock_info("admin", &[]);
+        let info = message_info(&Addr::unchecked("admin"), &[]);
         let add_msg = ExecuteMsg::AddComplianceModule {
             token_address: Addr::unchecked("token"),
             module_address: Addr::unchecked("module"),
@@ -401,7 +401,7 @@ mod tests {
             _ => panic!("Unexpected query type"),
         });
 
-        let info = mock_info("admin", &[]);
+        let info = message_info(&Addr::unchecked("admin"), &[]);
         let add_msg = ExecuteMsg::AddComplianceModule {
             token_address: Addr::unchecked("token"),
             module_address: Addr::unchecked("module"),
@@ -434,7 +434,7 @@ mod tests {
         };
 
         let res = query(deps.as_ref(), mock_env(), msg).unwrap();
-        let is_compliant: bool = from_json(&res).unwrap();
+        let is_compliant: bool = from_json(res).unwrap();
         assert!(is_compliant);
     }
 }

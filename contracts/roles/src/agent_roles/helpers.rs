@@ -26,20 +26,20 @@ impl CwTemplateContract {
     }
 }
 
-pub fn is_transfer_allowed(deps: Deps) -> StdResult<bool> {
+pub fn is_transfer_allowed(_deps: Deps) -> StdResult<bool> {
     // Check if transfers are globally enabled
     // This could be a flag in your contract's state
     Ok(true) // Placeholder implementation
 }
 
-pub fn can_transfer(deps: Deps, address: &str) -> StdResult<bool> {
+pub fn can_transfer(_deps: Deps, _address: &str) -> StdResult<bool> {
     // Check if the address is allowed to send transfers
     // This could involve checking the address against a whitelist,
     // checking for a specific role, or other criteria
     Ok(true) // Placeholder implementation
 }
 
-pub fn can_receive(deps: Deps, address: &str) -> StdResult<bool> {
+pub fn can_receive(_deps: Deps, _address: &str) -> StdResult<bool> {
     // Check if the address is allowed to receive transfers
     // Similar to can_transfer, but for recipients
     Ok(true) // Placeholder implementation

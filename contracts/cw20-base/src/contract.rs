@@ -605,7 +605,7 @@ pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, C
 #[cfg(test)]
 mod tests {
     use cosmwasm_std::testing::{
-        mock_dependencies, mock_dependencies_with_balance, mock_env, mock_info,
+        message_info, mock_dependencies, mock_dependencies_with_balance, mock_env,
     };
     use cosmwasm_std::{coins, from_json, Addr, CosmosMsg, StdError, SubMsg, WasmMsg};
 
@@ -658,7 +658,7 @@ mod tests {
             mint: mint.clone(),
             marketing: None,
         };
-        let info = mock_info("creator", &[]);
+        let info = message_info(&Addr::unchecked("creator"), &[]);
         let env = mock_env();
         let res = instantiate(deps.branch(), env, info, instantiate_msg).unwrap();
         assert_eq!(0, res.messages.len());
@@ -699,7 +699,7 @@ mod tests {
                 mint: None,
                 marketing: None,
             };
-            let info = mock_info("creator", &[]);
+            let info = message_info(&Addr::unchecked("creator"), &[]);
             let env = mock_env();
             let res = instantiate(deps.as_mut(), env, info, instantiate_msg).unwrap();
             assert_eq!(0, res.messages.len());
@@ -737,7 +737,7 @@ mod tests {
                 }),
                 marketing: None,
             };
-            let info = mock_info("creator", &[]);
+            let info = message_info(&Addr::unchecked("creator"), &[]);
             let env = mock_env();
             let res = instantiate(deps.as_mut(), env, info, instantiate_msg).unwrap();
             assert_eq!(0, res.messages.len());
@@ -782,7 +782,7 @@ mod tests {
                 }),
                 marketing: None,
             };
-            let info = mock_info("creator", &[]);
+            let info = message_info(&Addr::unchecked("creator"), &[]);
             let env = mock_env();
             let err = instantiate(deps.as_mut(), env, info, instantiate_msg).unwrap_err();
             assert_eq!(
@@ -814,7 +814,7 @@ mod tests {
                     }),
                 };
 
-                let info = mock_info("creator", &[]);
+                let info = message_info(&Addr::unchecked("creator"), &[]);
                 let env = mock_env();
                 let res = instantiate(deps.as_mut(), env, info, instantiate_msg).unwrap();
                 assert_eq!(0, res.messages.len());
@@ -853,7 +853,7 @@ mod tests {
                     }),
                 };
 
-                let info = mock_info("creator", &[]);
+                let info = message_info(&Addr::unchecked("creator"), &[]);
                 let env = mock_env();
                 instantiate(deps.as_mut(), env, info, instantiate_msg).unwrap_err();
 
@@ -884,7 +884,7 @@ mod tests {
             amount: prize,
         };
 
-        let info = mock_info(minter.as_ref(), &[]);
+        let info = message_info(&Addr::unchecked(minter.clone()), &[]);
         let env = mock_env();
         let res = execute(deps.as_mut(), env, info, msg).unwrap();
         assert_eq!(0, res.messages.len());
@@ -896,7 +896,7 @@ mod tests {
             recipient: winner.clone(),
             amount: Uint128::zero(),
         };
-        let info = mock_info(minter.as_ref(), &[]);
+        let info = message_info(&Addr::unchecked(minter.clone()), &[]);
         let env = mock_env();
         execute(deps.as_mut(), env, info, msg).unwrap();
 
@@ -906,7 +906,7 @@ mod tests {
             recipient: winner,
             amount: Uint128::new(333_222_222),
         };
-        let info = mock_info(minter.as_ref(), &[]);
+        let info = message_info(&Addr::unchecked(minter.clone()), &[]);
         let env = mock_env();
         let err = execute(deps.as_mut(), env, info, msg).unwrap_err();
         assert_eq!(err, ContractError::CannotExceedCap {});
@@ -926,7 +926,7 @@ mod tests {
             recipient: winner,
             amount: Uint128::new(222),
         };
-        let info = mock_info("anyone else", &[]);
+        let info = message_info(&Addr::unchecked("anyone else"), &[]);
         let env = mock_env();
         let err = execute(deps.as_mut(), env, info, msg).unwrap_err();
         assert_eq!(err, ContractError::Unauthorized {});
@@ -947,7 +947,7 @@ mod tests {
             new_minter: Some(new_minter.clone()),
         };
 
-        let info = mock_info(&minter, &[]);
+        let info = message_info(&Addr::unchecked(minter.clone()), &[]);
         let env = mock_env();
         let res = execute(deps.as_mut(), env.clone(), info, msg);
         assert!(res.is_ok());
@@ -974,7 +974,7 @@ mod tests {
             new_minter: Some(new_minter),
         };
 
-        let info = mock_info("not the minter", &[]);
+        let info = message_info(&Addr::unchecked("not the minter"), &[]);
         let env = mock_env();
         let err = execute(deps.as_mut(), env, info, msg).unwrap_err();
         assert_eq!(err, ContractError::Unauthorized {});
@@ -993,7 +993,7 @@ mod tests {
 
         let msg = ExecuteMsg::UpdateMinter { new_minter: None };
 
-        let info = mock_info(&minter, &[]);
+        let info = message_info(&Addr::unchecked(minter.clone()), &[]);
         let env = mock_env();
         let res = execute(deps.as_mut(), env.clone(), info, msg);
         assert!(res.is_ok());
@@ -1009,7 +1009,7 @@ mod tests {
             recipient: winner,
             amount: Uint128::new(222),
         };
-        let info = mock_info(&minter, &[]);
+        let info = message_info(&Addr::unchecked(minter.clone()), &[]);
         let env = mock_env();
         let err = execute(deps.as_mut(), env, info, msg).unwrap_err();
         assert_eq!(err, ContractError::Unauthorized {});
@@ -1028,7 +1028,7 @@ mod tests {
             recipient: winner,
             amount: Uint128::new(222),
         };
-        let info = mock_info(&genesis, &[]);
+        let info = message_info(&Addr::unchecked(genesis.clone()), &[]);
         let env = mock_env();
         let err = execute(deps.as_mut(), env, info, msg).unwrap_err();
         assert_eq!(err, ContractError::Unauthorized {});
@@ -1041,7 +1041,7 @@ mod tests {
         let addr1 = deps.api.addr_make("addr0001").to_string();
         let amount2 = Uint128::from(7890987u128);
         let addr2 = deps.api.addr_make("addr0002").to_string();
-        let info = mock_info("creator", &[]);
+        let info = message_info(&Addr::unchecked("creator"), &[]);
         let env = mock_env();
 
         // Fails with duplicate addresses
@@ -1114,7 +1114,7 @@ mod tests {
         let loaded = query_token_info(deps.as_ref()).unwrap();
         assert_eq!(expected, loaded);
 
-        let _info = mock_info("test", &[]);
+        let _info = message_info(&Addr::unchecked("test"), &[]);
         let env = mock_env();
         // check balance query (full)
         let data = query(
@@ -1144,7 +1144,7 @@ mod tests {
         do_instantiate(deps.as_mut(), &addr1, amount1);
 
         // Allows transferring 0
-        let info = mock_info(addr1.as_ref(), &[]);
+        let info = message_info(&Addr::unchecked(addr1.clone()), &[]);
         let env = mock_env();
         let msg = ExecuteMsg::Transfer {
             recipient: addr2.clone(),
@@ -1153,7 +1153,7 @@ mod tests {
         execute(deps.as_mut(), env, info, msg).unwrap();
 
         // cannot send more than we have
-        let info = mock_info(addr1.as_ref(), &[]);
+        let info = message_info(&Addr::unchecked(addr1.clone()), &[]);
         let env = mock_env();
         let msg = ExecuteMsg::Transfer {
             recipient: addr2.clone(),
@@ -1163,7 +1163,7 @@ mod tests {
         assert!(matches!(err, ContractError::Std(StdError::Overflow { .. })));
 
         // cannot send from empty account
-        let info = mock_info(addr2.as_ref(), &[]);
+        let info = message_info(&Addr::unchecked(addr2.clone()), &[]);
         let env = mock_env();
         let msg = ExecuteMsg::Transfer {
             recipient: addr1.clone(),
@@ -1173,7 +1173,7 @@ mod tests {
         assert!(matches!(err, ContractError::Std(StdError::Overflow { .. })));
 
         // valid transfer
-        let info = mock_info(addr1.as_ref(), &[]);
+        let info = message_info(&Addr::unchecked(addr1.clone()), &[]);
         let env = mock_env();
         let msg = ExecuteMsg::Transfer {
             recipient: addr2.clone(),
@@ -1202,7 +1202,7 @@ mod tests {
         do_instantiate(deps.as_mut(), &addr1, amount1);
 
         // Allows burning 0
-        let info = mock_info(addr1.as_ref(), &[]);
+        let info = message_info(&Addr::unchecked(addr1.clone()), &[]);
         let env = mock_env();
         let msg = ExecuteMsg::Burn {
             amount: Uint128::zero(),
@@ -1214,7 +1214,7 @@ mod tests {
         );
 
         // cannot burn more than we have
-        let info = mock_info(addr1.as_ref(), &[]);
+        let info = message_info(&Addr::unchecked(addr1.clone()), &[]);
         let env = mock_env();
         let msg = ExecuteMsg::Burn { amount: too_much };
         let err = execute(deps.as_mut(), env, info, msg).unwrap_err();
@@ -1225,7 +1225,7 @@ mod tests {
         );
 
         // valid burn reduces total supply
-        let info = mock_info(addr1.as_ref(), &[]);
+        let info = message_info(&Addr::unchecked(addr1.clone()), &[]);
         let env = mock_env();
         let msg = ExecuteMsg::Burn { amount: burn };
         let res = execute(deps.as_mut(), env, info, msg).unwrap();
@@ -1252,7 +1252,7 @@ mod tests {
         do_instantiate(deps.as_mut(), &addr1, amount1);
 
         // Allows sending 0
-        let info = mock_info(addr1.as_ref(), &[]);
+        let info = message_info(&Addr::unchecked(addr1.clone()), &[]);
         let env = mock_env();
         let msg = ExecuteMsg::Send {
             contract: contract.clone(),
@@ -1262,7 +1262,7 @@ mod tests {
         execute(deps.as_mut(), env, info, msg).unwrap();
 
         // cannot send more than we have
-        let info = mock_info(addr1.as_ref(), &[]);
+        let info = message_info(&Addr::unchecked(addr1.clone()), &[]);
         let env = mock_env();
         let msg = ExecuteMsg::Send {
             contract: contract.clone(),
@@ -1273,7 +1273,7 @@ mod tests {
         assert!(matches!(err, ContractError::Std(StdError::Overflow { .. })));
 
         // valid transfer
-        let info = mock_info(addr1.as_ref(), &[]);
+        let info = message_info(&Addr::unchecked(addr1.clone()), &[]);
         let env = mock_env();
         let msg = ExecuteMsg::Send {
             contract: contract.clone(),
@@ -1459,7 +1459,7 @@ mod tests {
                 }),
             };
 
-            let info = mock_info(creator.as_str(), &[]);
+            let info = message_info(&Addr::unchecked("creator"), &[]);
 
             instantiate(deps.as_mut(), mock_env(), info.clone(), instantiate_msg).unwrap();
 
@@ -1515,7 +1515,7 @@ mod tests {
                 }),
             };
 
-            let info = mock_info(creator.as_str(), &[]);
+            let info = message_info(&creator, &[]);
 
             instantiate(deps.as_mut(), mock_env(), info.clone(), instantiate_msg).unwrap();
 
@@ -1570,7 +1570,7 @@ mod tests {
                 }),
             };
 
-            let info = mock_info(creator.as_str(), &[]);
+            let info = message_info(&creator, &[]);
 
             instantiate(deps.as_mut(), mock_env(), info.clone(), instantiate_msg).unwrap();
 
@@ -1625,7 +1625,7 @@ mod tests {
                 }),
             };
 
-            let info = mock_info(creator.as_str(), &[]);
+            let info = message_info(&creator, &[]);
 
             instantiate(deps.as_mut(), mock_env(), info.clone(), instantiate_msg).unwrap();
 
@@ -1680,7 +1680,7 @@ mod tests {
                 }),
             };
 
-            let info = mock_info(creator.as_str(), &[]);
+            let info = message_info(&creator, &[]);
 
             instantiate(deps.as_mut(), mock_env(), info.clone(), instantiate_msg).unwrap();
 
@@ -1736,7 +1736,7 @@ mod tests {
                 }),
             };
 
-            let info = mock_info(creator.as_str(), &[]);
+            let info = message_info(&creator, &[]);
 
             instantiate(deps.as_mut(), mock_env(), info.clone(), instantiate_msg).unwrap();
 
@@ -1791,7 +1791,7 @@ mod tests {
                 }),
             };
 
-            let info = mock_info(creator.as_str(), &[]);
+            let info = message_info(&creator, &[]);
 
             instantiate(deps.as_mut(), mock_env(), info.clone(), instantiate_msg).unwrap();
 
@@ -1849,7 +1849,7 @@ mod tests {
                 }),
             };
 
-            let info = mock_info(creator.as_str(), &[]);
+            let info = message_info(&creator, &[]);
 
             instantiate(deps.as_mut(), mock_env(), info.clone(), instantiate_msg).unwrap();
 
@@ -1904,7 +1904,7 @@ mod tests {
                 }),
             };
 
-            let info = mock_info(creator.as_str(), &[]);
+            let info = message_info(&creator, &[]);
 
             instantiate(deps.as_mut(), mock_env(), info.clone(), instantiate_msg).unwrap();
 
@@ -1955,7 +1955,7 @@ mod tests {
                 }),
             };
 
-            let info = mock_info(creator.as_str(), &[]);
+            let info = message_info(&creator, &[]);
 
             instantiate(deps.as_mut(), mock_env(), info.clone(), instantiate_msg).unwrap();
 
@@ -2008,7 +2008,7 @@ mod tests {
                 }),
             };
 
-            let info = mock_info(creator.as_str(), &[]);
+            let info = message_info(&creator, &[]);
 
             instantiate(deps.as_mut(), mock_env(), info.clone(), instantiate_msg).unwrap();
 
@@ -2062,7 +2062,7 @@ mod tests {
                 }),
             };
 
-            let info = mock_info(creator.as_str(), &[]);
+            let info = message_info(&Addr::unchecked("creator"), &[]);
 
             instantiate(deps.as_mut(), mock_env(), info.clone(), instantiate_msg).unwrap();
 
@@ -2114,7 +2114,7 @@ mod tests {
                 }),
             };
 
-            let info = mock_info(creator.as_str(), &[]);
+            let info = message_info(&Addr::unchecked("creator"), &[]);
 
             instantiate(deps.as_mut(), mock_env(), info.clone(), instantiate_msg).unwrap();
 
@@ -2173,7 +2173,7 @@ mod tests {
                 }),
             };
 
-            let info = mock_info(creator.as_str(), &[]);
+            let info = message_info(&Addr::unchecked("creator"), &[]);
 
             instantiate(deps.as_mut(), mock_env(), info.clone(), instantiate_msg).unwrap();
 
@@ -2225,7 +2225,7 @@ mod tests {
                 }),
             };
 
-            let info = mock_info("creator", &[]);
+            let info = message_info(&Addr::unchecked("creator"), &[]);
 
             instantiate(deps.as_mut(), mock_env(), info.clone(), instantiate_msg).unwrap();
 

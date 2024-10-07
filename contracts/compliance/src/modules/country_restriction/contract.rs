@@ -189,17 +189,17 @@ pub mod query {
     use crate::modules::country_restriction::{msg::RestrictedCountry, state::RESTRICTED_COUNTRY};
 
     use super::*;
-    use cosmwasm_std::{to_json_binary, Addr, QueryRequest, Uint128, WasmQuery};
+    use cosmwasm_std::{Addr, Uint128};
 
     /// Check compliance for a token transfer
     pub fn check_compliance(
         deps: Deps,
         token_address: Addr,
-        from: Option<Addr>,
-        to: Option<Addr>,
-        amount: Option<Uint128>,
+        _from: Option<Addr>,
+        _to: Option<Addr>,
+        _amount: Option<Uint128>,
     ) -> StdResult<bool> {
-        let idenitry_address = IDENTITY_ADDRESS.load(deps.storage)?;
+        let _idenitry_address = IDENTITY_ADDRESS.load(deps.storage)?;
 
         // Get all active restricted countries for the token
         let restricted_countries: Vec<RestrictedCountry> = RESTRICTED_COUNTRY
@@ -216,7 +216,7 @@ pub mod query {
             .collect();
 
         // Check if sender or receiver is in a restricted country
-        for restricted_country in restricted_countries {
+        for _restricted_country in restricted_countries {
             // let msg = QueryMsg::GetCountryCode {
             //     from: from.clone(),
             //     to: to.clone(),
@@ -244,8 +244,8 @@ mod tests {
     use crate::modules::country_restriction::state::RESTRICTED_COUNTRY;
 
     use super::*;
-    use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
-    use cosmwasm_std::{from_json, Addr, ContractResult, SystemResult, Uint128};
+    use cosmwasm_std::testing::{message_info, mock_dependencies, mock_env};
+    use cosmwasm_std::{from_json, Addr, ContractResult, SystemResult};
     use roles::owner_roles::msg::OwnerRole;
 
     fn setup_contract(deps: DepsMut) -> (Addr, Addr) {
@@ -255,7 +255,7 @@ mod tests {
             owner_roles_address: owner_roles_address.clone(),
             identity_address: identity_address.clone(),
         };
-        let info = mock_info("creator", &[]);
+        let info = message_info(&Addr::unchecked("creator"), &[]);
         let _ = instantiate(deps, mock_env(), info, msg).unwrap();
         (owner_roles_address, identity_address)
     }
@@ -296,7 +296,7 @@ mod tests {
             _ => panic!("Unexpected query type"),
         });
 
-        let info = mock_info("authorized_user", &[]);
+        let info = message_info(&Addr::unchecked("authorized_user"), &[]);
         let token_address = Addr::unchecked("token_address");
         let country_code = "US".to_string();
 
@@ -345,7 +345,7 @@ mod tests {
             _ => panic!("Unexpected query type"),
         });
 
-        let info = mock_info("authorized_user", &[]);
+        let info = message_info(&Addr::unchecked("authorized_user"), &[]);
         let token_address = Addr::unchecked("token_address");
         let country_code = "US".to_string();
 
@@ -401,7 +401,7 @@ mod tests {
             _ => panic!("Unexpected query type"),
         });
 
-        let info = mock_info("authorized_user", &[]);
+        let info = message_info(&Addr::unchecked("authorized_user"), &[]);
         let token_address = Addr::unchecked("token_address");
         let country_code = "US".to_string();
 
@@ -435,10 +435,5 @@ mod tests {
             .load(&deps.storage, (token_address, country_code))
             .unwrap();
         assert!(!restriction.active);
-    }
-
-    #[test]
-    fn check_compliance() {
-        assert!(true);
     }
 }
