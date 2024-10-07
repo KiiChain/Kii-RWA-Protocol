@@ -1380,6 +1380,41 @@ mod tests {
     }
 
     #[test]
+    fn transfer_no_compliance() {
+        let mut deps = mock_dependencies_with_balance(&coins(2, "token"));
+        let addr1 = deps.api.addr_make("addr0001").to_string();
+        let addr2 = deps.api.addr_make("addr0002").to_string();
+        let amount1 = Uint128::from(12340000u128);
+        // Mock the compliance query
+        deps.querier.update_wasm(|query| match query {
+            cosmwasm_std::WasmQuery::Smart { msg, .. } => {
+                let parsed: utils::QueryMsg = from_json(msg).unwrap();
+                match parsed {
+                    CheckTokenCompliance {
+                        token_address: _,
+                        from: _,
+                        to: _,
+                        amount: _,
+                    } => SystemResult::Ok(ContractResult::Ok(to_json_binary(&false).unwrap())),
+                }
+            }
+            _ => panic!("Unexpected query type"),
+        });
+
+        do_instantiate(deps.as_mut(), &addr1, amount1);
+
+        let info = message_info(&Addr::unchecked(addr1.clone()), &[]);
+        let env = mock_env();
+        let msg = ExecuteMsg::Transfer {
+            recipient: addr2.clone(),
+            amount: Uint128::one(),
+        };
+
+        let err = execute(deps.as_mut(), env, info, msg).unwrap_err();
+        assert!(matches!(err, ContractError::ComplianceCheckFailed));
+    }
+
+    #[test]
     fn burn() {
         let mut deps = mock_dependencies_with_balance(&coins(2, "token"));
         let addr1 = deps.api.addr_make("addr0001").to_string();
