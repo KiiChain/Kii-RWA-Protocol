@@ -189,7 +189,7 @@ pub mod query {
     use crate::modules::country_restriction::{msg::RestrictedCountry, state::RESTRICTED_COUNTRY};
 
     use super::*;
-    use cosmwasm_std::{to_json_binary, Addr, QueryRequest, Uint128, WasmQuery};
+    use cosmwasm_std::{Addr, Uint128};
 
     /// Check compliance for a token transfer
     pub fn check_compliance(
@@ -245,7 +245,7 @@ mod tests {
 
     use super::*;
     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
-    use cosmwasm_std::{from_json, Addr, ContractResult, SystemResult, Uint128};
+    use cosmwasm_std::{from_json, Addr, ContractResult, SystemResult};
     use roles::owner_roles::msg::OwnerRole;
 
     fn setup_contract(deps: DepsMut) -> (Addr, Addr) {

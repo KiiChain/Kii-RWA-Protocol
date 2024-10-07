@@ -434,7 +434,7 @@ mod tests {
         };
 
         let res = query(deps.as_ref(), mock_env(), msg).unwrap();
-        let is_compliant: bool = from_json(&res).unwrap();
+        let is_compliant: bool = from_json(res).unwrap();
         assert!(is_compliant);
     }
 }

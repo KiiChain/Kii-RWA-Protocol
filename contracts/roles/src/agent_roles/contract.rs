@@ -405,7 +405,7 @@ mod tests {
             agent: agent.clone(),
         };
         let res = query(deps.as_ref(), mock_env(), msg).unwrap();
-        let is_agent: IsAgentResponse = from_json(&res).unwrap();
+        let is_agent: IsAgentResponse = from_json(res).unwrap();
         assert!(is_agent.is_agent);
         assert_eq!(is_agent.role, AgentRole::SupplyModifiers);
     }
@@ -447,7 +447,7 @@ mod tests {
             agent,
         };
         let res = query(deps.as_ref(), mock_env(), msg).unwrap();
-        let is_agent: IsAgentResponse = from_json(&res).unwrap();
+        let is_agent: IsAgentResponse = from_json(res).unwrap();
         assert!(!is_agent.is_agent);
         assert_eq!(is_agent.role, AgentRole::Freezers);
     }
@@ -536,7 +536,7 @@ mod tests {
             agent: agent.clone(),
         };
         let res = query(deps.as_ref(), mock_env(), msg).unwrap();
-        let is_agent: IsAgentResponse = from_json(&res).unwrap();
+        let is_agent: IsAgentResponse = from_json(res).unwrap();
         assert!(!is_agent.is_agent);
         assert_eq!(is_agent.role, AgentRole::ComplianceAgent);
 

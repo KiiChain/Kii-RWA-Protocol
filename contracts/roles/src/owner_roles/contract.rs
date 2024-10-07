@@ -448,7 +448,7 @@ mod tests {
         };
         let res = query(deps.as_ref(), mock_env(), msg).unwrap();
 
-        let is_owner: IsOwnerResponse = from_json(&res).unwrap();
+        let is_owner: IsOwnerResponse = from_json(res).unwrap();
         assert!(is_owner.is_owner);
         assert_eq!(is_owner.role, OwnerRole::OwnerAdmin);
     }
@@ -494,7 +494,7 @@ mod tests {
             owner: new_owner.clone(),
         };
         let res = query(deps.as_ref(), mock_env(), msg).unwrap();
-        let is_owner: IsOwnerResponse = from_json(&res).unwrap();
+        let is_owner: IsOwnerResponse = from_json(res).unwrap();
         assert!(!is_owner.is_owner);
     }
 
@@ -565,11 +565,9 @@ mod tests {
 
         // Add multiple roles to the same owner
         let new_owner = Addr::unchecked("new_owner");
-        let roles = vec![
-            OwnerRole::OwnerAdmin,
+        let roles = [OwnerRole::OwnerAdmin,
             OwnerRole::ComplianceManager,
-            OwnerRole::TokenInfoManager,
-        ];
+            OwnerRole::TokenInfoManager];
 
         for role in roles.iter() {
             let msg = ExecuteMsg::AddOwnerRole {
@@ -604,7 +602,7 @@ mod tests {
             owner: new_owner.clone(),
         };
         let res = query(deps.as_ref(), mock_env(), msg).unwrap();
-        let is_owner: IsOwnerResponse = from_json(&res).unwrap();
+        let is_owner: IsOwnerResponse = from_json(res).unwrap();
         assert!(!is_owner.is_owner);
 
         let msg = QueryMsg::IsOwner {
@@ -612,7 +610,7 @@ mod tests {
             owner: new_owner.clone(),
         };
         let res = query(deps.as_ref(), mock_env(), msg).unwrap();
-        let is_owner: IsOwnerResponse = from_json(&res).unwrap();
+        let is_owner: IsOwnerResponse = from_json(res).unwrap();
         assert!(is_owner.is_owner);
         assert_eq!(is_owner.role, OwnerRole::OwnerAdmin);
     }

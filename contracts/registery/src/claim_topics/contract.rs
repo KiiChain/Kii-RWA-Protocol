@@ -171,7 +171,7 @@ mod tests {
             topic: Uint128::new(1),
         };
         let res = query(deps.as_ref(), mock_env(), msg).unwrap();
-        let is_valid: bool = from_json(&res).unwrap();
+        let is_valid: bool = from_json(res).unwrap();
         assert!(is_valid);
     }
 
@@ -217,7 +217,7 @@ mod tests {
             topic: Uint128::new(1),
         };
         let res = query(deps.as_ref(), mock_env(), msg).unwrap();
-        let is_valid: bool = from_json(&res).unwrap();
+        let is_valid: bool = from_json(res).unwrap();
         assert!(!is_valid);
     }
 }

@@ -254,13 +254,13 @@ mod tests {
             issuer: issuer.clone(),
         };
         let res = query(deps.as_ref(), mock_env(), msg).unwrap();
-        let is_trusted: bool = from_json(&res).unwrap();
+        let is_trusted: bool = from_json(res).unwrap();
         assert!(is_trusted);
 
         // Verify claim topics
         let msg = QueryMsg::GetIssuerClaimTopics { issuer };
         let res = query(deps.as_ref(), mock_env(), msg).unwrap();
-        let stored_claim_topics: Vec<Uint128> = from_json(&res).unwrap();
+        let stored_claim_topics: Vec<Uint128> = from_json(res).unwrap();
         assert_eq!(stored_claim_topics, claim_topics);
     }
 
@@ -308,7 +308,7 @@ mod tests {
         // Verify updated claim topics
         let msg = QueryMsg::GetIssuerClaimTopics { issuer };
         let res = query(deps.as_ref(), mock_env(), msg).unwrap();
-        let stored_claim_topics: Vec<Uint128> = from_json(&res).unwrap();
+        let stored_claim_topics: Vec<Uint128> = from_json(res).unwrap();
         assert_eq!(stored_claim_topics, updated_claim_topics);
     }
 
@@ -361,7 +361,7 @@ mod tests {
         // Verify the issuer was removed
         let msg = QueryMsg::IsTrustedIssuer { issuer };
         let res = query(deps.as_ref(), mock_env(), msg).unwrap();
-        let is_trusted: bool = from_json(&res).unwrap();
+        let is_trusted: bool = from_json(res).unwrap();
         assert!(!is_trusted);
     }
 }
