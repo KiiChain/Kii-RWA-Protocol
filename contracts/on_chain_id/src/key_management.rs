@@ -3,7 +3,7 @@ use crate::error::ContractError;
 use crate::state::{Key, KeyType, IDENTITY};
 use crate::utils::check_key_authorization;
 
-pub fn add_key(
+pub fn execute_add_key(
     deps: DepsMut,
     info: MessageInfo,
     key_owner: String,
@@ -29,12 +29,12 @@ pub fn add_key(
     IDENTITY.save(deps.storage, &info.sender, &identity)?;
 
     Ok(Response::new()
-        .add_attribute("method", "add_key")
+        .add_attribute("action", "add_key")
         .add_attribute("key_type", key_type)
         .add_attribute("key_owner", addr_key_owner))
 }
 
-pub fn remove_key(
+pub fn execute_remove_key(
     deps: DepsMut,
     info: MessageInfo,
     key_owner: String,
@@ -53,7 +53,7 @@ pub fn remove_key(
     IDENTITY.save(deps.storage, &info.sender, &identity)?;
 
     Ok(Response::new()
-        .add_attribute("method", "remove_key")
+        .add_attribute("action", "remove_key")
         .add_attribute("key_owner", addr_key_owner)
         .add_attribute("key_type", key_type.to_string()))
 }

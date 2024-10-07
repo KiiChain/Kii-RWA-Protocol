@@ -7,8 +7,8 @@ use cw2::set_contract_version;
 
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
-use crate::key_management::{add_key, remove_key};
-use crate::claim_management::{add_claim, remove_claim};
+use crate::key_management::{execute_add_key, execute_remove_key};
+use crate::claim_management::{execute_add_claim, execute_remove_claim};
 use crate::state::{Identity, Key, KeyType, Claim, ClaimTopic, IDENTITY, OWNER};
 
 // version info for migration info
@@ -51,10 +51,10 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
     match msg {
-        ExecuteMsg::AddKey { key_owner, key_type } => add_key(deps, info, key_owner, key_type),
-        ExecuteMsg::RevokeKey { key_owner, key_type } => remove_key(deps, info, key_owner, key_type),
-        ExecuteMsg::AddClaim { claim, issuer_signature } => add_claim(deps, info, claim, issuer_signature),
-        ExecuteMsg::RemoveClaim { claim_id } => remove_claim(deps, info, claim_id),
+        ExecuteMsg::AddKey { key_owner, key_type } => execute_add_key(deps, info, key_owner, key_type),
+        ExecuteMsg::RevokeKey { key_owner, key_type } => execute_remove_key(deps, info, key_owner, key_type),
+        ExecuteMsg::AddClaim { claim, issuer_signature } => execute_add_claim(deps, info, claim, issuer_signature),
+        ExecuteMsg::RemoveClaim { claim_id } => execute_remove_claim(deps, info, claim_id),
     }
 }
 

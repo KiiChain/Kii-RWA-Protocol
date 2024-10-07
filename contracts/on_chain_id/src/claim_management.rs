@@ -4,12 +4,13 @@ use crate::state::{Claim, ClaimTopic, KeyType, IDENTITY};
 use crate::utils::check_key_authorization;
 use sha2::{Sha256, Digest};
 
-pub fn add_claim(
+pub fn execute_add_claim(
     deps: DepsMut,
     info: MessageInfo,
     mut claim: Claim,
     issuer_signature: Binary,
 ) -> Result<Response, ContractError> {
+
     // Check if the sender is authorized to add claims (must have a MANAGEMENT_KEY)
     check_key_authorization(&deps, &info.sender, KeyType::ManagementKey)?;
 
@@ -27,18 +28,20 @@ pub fn add_claim(
     }
 
     identity.claims.push(claim.clone());
+
     IDENTITY.save(deps.storage, &info.sender, &identity)?;
 
     Ok(Response::new()
-        .add_attribute("method", "add_claim")
+        .add_attribute("action", "add_claim")
         .add_attribute("claim_id", claim.id.unwrap_or_default()))
 }
 
-pub fn remove_claim(
+pub fn execute_remove_claim(
     deps: DepsMut,
     info: MessageInfo,
     claim_id: String,
 ) -> Result<Response, ContractError> {
+
     // Check if the sender is authorized to remove claims (must have a MANAGEMENT_KEY)
     check_key_authorization(&deps, &info.sender, KeyType::ManagementKey)?;
 
@@ -50,7 +53,7 @@ pub fn remove_claim(
     IDENTITY.save(deps.storage, &info.sender, &identity)?;
 
     Ok(Response::new()
-        .add_attribute("method", "remove_claim")
+        .add_attribute("action", "remove_claim")
         .add_attribute("claim_id", claim_id))
 }
 
