@@ -41,23 +41,11 @@ pub fn generate_claim_id(claim: &mut Claim) {
 }
 
 pub fn verify_claim_signature(deps: &DepsMut, claim: &Claim, public_key: Binary) -> Result<(), ContractError> {
-    let owner = OWNER.load(deps.storage)
-        .map_err(|e| ContractError::LoadError { 
-            entity: "owner".to_string(), 
-            reason: e.to_string() 
-        })?;
-    
-    let keys = KEYS.load(deps.storage, &owner)
-        .map_err(|e| ContractError::LoadError { entity: "issuer keys".to_string(), reason: e.to_string() })?;
-    
-    // Check if the issuer has a CLAIM_SIGNER_KEY
-    let _claim_signer_key = keys.iter().find(|key| key.key_type == KeyType::ClaimSignerKey && key.owner == claim.issuer)
-        .ok_or(ContractError::Unauthorized { reason: "Issuer lacks CLAIM_SIGNER_KEY".to_string() })?;
 
     // Hash the claim data (excluding signature)
     let message_hash = hash_claim_without_signature(claim);
 
-    // Verify the signature using the CLAIM_SIGNER_KEY
+    // Retrieve the signature from the claim
     let signature = claim.signature.as_slice();
 
 

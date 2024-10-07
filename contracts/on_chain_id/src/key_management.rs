@@ -94,6 +94,13 @@ pub fn execute_remove_key(
             reason: e.to_string() 
         })?;
 
+    // Prevent removal of the owner's Management Key
+    if key_type == KeyType::ManagementKey && addr_key_owner == owner {
+        return Err(ContractError::Unauthorized { 
+            reason: "Cannot remove the owner's Management Key".to_string() 
+        });
+    }
+
     // Load existing keys
     let mut keys = KEYS.load(deps.storage, &owner)
         .map_err(|e| ContractError::LoadError { 

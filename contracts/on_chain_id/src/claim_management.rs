@@ -9,9 +9,9 @@ pub fn execute_add_claim(
     mut claim: Claim,
     public_key: Binary,
 ) -> Result<Response, ContractError> {
-    // Check if the sender is authorized to add claims (must have a MANAGEMENT_KEY)
-    check_key_authorization(&deps, &info.sender, KeyType::ManagementKey)
-        .map_err(|e| ContractError::Unauthorized { reason: format!("Sender lacks MANAGEMENT_KEY: {}", e) })?;
+    // Check if the sender is authorized to add claims (must have a CLAIM_SIGNER_KEY)
+    check_key_authorization(&deps, &info.sender, KeyType::ClaimSignerKey)
+        .map_err(|e| ContractError::Unauthorized { reason: format!("Sender lacks CLAIM_SIGNER_KEY: {}", e) })?;
 
     // Verify the issuer's signature (must be signed by a CLAIM_SIGNER_KEY)
     verify_claim_signature(&deps, &claim, public_key)
@@ -52,9 +52,9 @@ pub fn execute_remove_claim(
     info: MessageInfo,
     claim_id: String,
 ) -> Result<Response, ContractError> {
-    // Check if the sender is authorized to remove claims (must have a MANAGEMENT_KEY)
-    check_key_authorization(&deps, &info.sender, KeyType::ManagementKey)
-        .map_err(|e| ContractError::Unauthorized { reason: format!("Sender lacks MANAGEMENT_KEY: {}", e) })?;
+    // Check if the sender is authorized to remove claims (must have a CLAIM_SIGNER_KEY)
+    check_key_authorization(&deps, &info.sender, KeyType::ClaimSignerKey)
+        .map_err(|e| ContractError::Unauthorized { reason: format!("Sender lacks CLAIM_SIGNER_KEY: {}", e) })?;
 
     // Get the owner of the identity
     let owner = OWNER.load(deps.storage)
@@ -64,9 +64,20 @@ pub fn execute_remove_claim(
     let mut claims = CLAIMS.load(deps.storage, &owner)
         .map_err(|e| ContractError::LoadError { entity: "claims".to_string(), reason: e.to_string() })?;
 
-    // Find and remove the claim
+    // Find the claim and check authorization
     if let Some(index) = claims.iter().position(|c| c.id == Some(claim_id.clone())) {
+        let claim = &claims[index];
+        
+        // Check if the sender is the issuer or the owner
+        if info.sender != claim.issuer && info.sender != owner {
+            return Err(ContractError::Unauthorized { 
+                reason: "Only the claim issuer or the identity owner can remove a claim".to_string() 
+            });
+        }
+
+        // Remove the claim
         claims.remove(index);
+        
         // Save the updated claims
         CLAIMS.save(deps.storage, &owner, &claims)
             .map_err(|e| ContractError::SaveError { entity: "claims".to_string(), reason: e.to_string() })?;
