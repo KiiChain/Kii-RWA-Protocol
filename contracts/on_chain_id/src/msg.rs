@@ -19,7 +19,7 @@ pub enum ExecuteMsg {
     },
     AddClaim {
         claim: Claim,
-        issuer_signature: Binary,
+        public_key: Binary,
     },
     RemoveClaim {
         claim_id: String,

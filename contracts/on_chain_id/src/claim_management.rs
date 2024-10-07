@@ -7,14 +7,14 @@ pub fn execute_add_claim(
     deps: DepsMut,
     info: MessageInfo,
     mut claim: Claim,
-    issuer_signature: Binary,
+    public_key: Binary,
 ) -> Result<Response, ContractError> {
     // Check if the sender is authorized to add claims (must have a MANAGEMENT_KEY)
     check_key_authorization(&deps, &info.sender, KeyType::ManagementKey)
         .map_err(|e| ContractError::Unauthorized { reason: format!("Sender lacks MANAGEMENT_KEY: {}", e) })?;
 
     // Verify the issuer's signature (must be signed by a CLAIM_SIGNER_KEY)
-    verify_claim_signature(&deps, &claim, &issuer_signature)
+    verify_claim_signature(&deps, &claim, public_key)
         .map_err(|e| ContractError::InvalidSignature { reason: format!("Failed to verify claim signature: {}", e) })?;
     
     // Generate and set the claim ID

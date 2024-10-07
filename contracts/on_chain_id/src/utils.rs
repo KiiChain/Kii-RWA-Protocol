@@ -1,4 +1,5 @@
 use cosmwasm_std::{Addr, DepsMut, Binary, Deps};
+use secp256k1::PublicKey;
 use crate::error::ContractError;
 use crate::state::{KEYS, KeyType, OWNER, Claim, CLAIMS, ClaimTopic};
 use sha2::{Sha256, Digest};
@@ -40,7 +41,7 @@ pub fn generate_claim_id(claim: &mut Claim) {
     claim.id = Some(id);
 }
 
-pub fn verify_claim_signature(deps: &DepsMut, claim: &Claim, public_key: &Binary) -> Result<(), ContractError> {
+pub fn verify_claim_signature(deps: &DepsMut, claim: &Claim, public_key: Binary) -> Result<(), ContractError> {
     let owner = OWNER.load(deps.storage)
         .map_err(|e| ContractError::LoadError { 
             entity: "owner".to_string(), 
@@ -58,11 +59,11 @@ pub fn verify_claim_signature(deps: &DepsMut, claim: &Claim, public_key: &Binary
     let message_hash = hash_claim_without_signature(claim);
 
     // Verify the signature using the CLAIM_SIGNER_KEY
-    let public_key = public_key.as_slice();
     let signature = claim.signature.as_slice();
 
+
     // Use cosmwasm_std::secp256k1_verify for signature verification
-    let valid = deps.api.secp256k1_verify(message_hash.as_slice(), signature, public_key)
+    let valid = deps.api.secp256k1_verify(message_hash.as_slice(), signature, public_key.as_slice())
         .map_err(|e| ContractError::InvalidIssuerSignature { reason: e.to_string() })?;
 
     if !valid {
