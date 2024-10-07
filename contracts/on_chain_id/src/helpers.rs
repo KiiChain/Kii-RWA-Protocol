@@ -23,4 +23,3 @@ impl CwTemplateContract {
     //     .into())
     // }
 }
-
