@@ -1,37 +1,46 @@
-use cosmwasm_std::{Addr, DepsMut, Binary, Deps};
 use crate::error::ContractError;
-use crate::state::{KEYS, KeyType, OWNER, Claim, CLAIMS, ClaimTopic};
-use sha2::{Sha256, Digest};
+use crate::state::{Claim, ClaimTopic, KeyType, CLAIMS, KEYS, OWNER};
+use cosmwasm_std::{Addr, Binary, Deps, DepsMut};
+use sha2::{Digest, Sha256};
 
-pub fn check_key_authorization(deps: &DepsMut, sender: &Addr, required_key: KeyType) -> Result<(), ContractError> {
+pub fn check_key_authorization(
+    deps: &DepsMut,
+    sender: &Addr,
+    required_key: KeyType,
+) -> Result<(), ContractError> {
     // Load the owner of the identity
-    let owner = OWNER.load(deps.storage)
-        .map_err(|e| ContractError::LoadError { 
-            entity: "owner".to_string(), 
-            reason: e.to_string() 
+    let owner = OWNER
+        .load(deps.storage)
+        .map_err(|e| ContractError::LoadError {
+            entity: "owner".to_string(),
+            reason: e.to_string(),
         })?;
 
     // Load the Vec<Key> for the owner address
-    let keys = KEYS.load(deps.storage, &owner)
-        .map_err(|e| ContractError::LoadError { 
-            entity: "keys".to_string(), 
-            reason: e.to_string() 
+    let keys = KEYS
+        .load(deps.storage, &owner)
+        .map_err(|e| ContractError::LoadError {
+            entity: "keys".to_string(),
+            reason: e.to_string(),
         })?;
-    
+
     // Check if the sender is the owner and has the required key type
 
-    if keys.iter().any(|key| key.key_type == required_key && key.owner == *sender) {
+    if keys
+        .iter()
+        .any(|key| key.key_type == required_key && key.owner == *sender)
+    {
         Ok(())
     } else {
-        Err(ContractError::Unauthorized { 
-            reason: format!("Sender lacks required key type: {:?}", required_key) 
+        Err(ContractError::Unauthorized {
+            reason: format!("Sender lacks required key type: {:?}", required_key),
         })
     }
 }
 
 pub fn generate_claim_id(claim: &mut Claim) {
     let mut hasher = Sha256::new();
-    
+
     hasher.update(claim.topic.to_string().as_bytes());
     hasher.update(claim.issuer.as_bytes());
     hasher.update(&claim.data);
@@ -40,22 +49,28 @@ pub fn generate_claim_id(claim: &mut Claim) {
     claim.id = Some(id);
 }
 
-pub fn verify_claim_signature(deps: &DepsMut, claim: &Claim, public_key: Binary) -> Result<(), ContractError> {
-
+pub fn verify_claim_signature(
+    deps: &DepsMut,
+    claim: &Claim,
+    public_key: Binary,
+) -> Result<(), ContractError> {
     // Hash the claim data (excluding signature)
     let message_hash = hash_claim_without_signature(claim);
 
     // Retrieve the signature from the claim
     let signature = claim.signature.as_slice();
 
-
     // Use cosmwasm_std::secp256k1_verify for signature verification
-    let valid = deps.api.secp256k1_verify(message_hash.as_slice(), signature, public_key.as_slice())
-        .map_err(|e| ContractError::InvalidIssuerSignature { reason: e.to_string() })?;
+    let valid = deps
+        .api
+        .secp256k1_verify(message_hash.as_slice(), signature, public_key.as_slice())
+        .map_err(|e| ContractError::InvalidIssuerSignature {
+            reason: e.to_string(),
+        })?;
 
     if !valid {
-        return Err(ContractError::InvalidIssuerSignature { 
-            reason: "Signature verification failed".to_string() 
+        return Err(ContractError::InvalidIssuerSignature {
+            reason: "Signature verification failed".to_string(),
         });
     }
 
@@ -80,9 +95,13 @@ pub fn verify_claim(
     claim_topic: ClaimTopic,
 ) -> Result<bool, ContractError> {
     // Load claims for the given identity
-    let claims = CLAIMS.load(deps.storage, &identity)
-        .map_err(|e| ContractError::LoadError { entity: "claims".to_string(), reason: e.to_string() })?;
-    
+    let claims = CLAIMS
+        .load(deps.storage, &identity)
+        .map_err(|e| ContractError::LoadError {
+            entity: "claims".to_string(),
+            reason: e.to_string(),
+        })?;
+
     // Check if any claim matches the given topic
     Ok(claims.iter().any(|claim| claim.topic == claim_topic))
 }

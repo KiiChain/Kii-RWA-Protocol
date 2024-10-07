@@ -1,11 +1,10 @@
-
+use crate::error::ContractError;
+use cosmwasm_std::{Addr, Binary};
 use cw_storage_plus::{Item, Map};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use cosmwasm_std::{Addr, Binary};
-use crate::error::ContractError;
-use std::str::FromStr;
 use std::fmt;
+use std::str::FromStr;
 
 //Addr being the Key owner
 pub const KEYS: Map<&Addr, Vec<Key>> = Map::new("keys");
@@ -41,7 +40,7 @@ pub enum KeyType {
     // 3: CLAIM signer keys, used to sign claims on other identities which need to be revokable.
     ClaimSignerKey,
     // 4: ENCRYPTION keys, used to encrypt data e.g. hold in claims.
-    EncryptionKey
+    EncryptionKey,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -54,7 +53,7 @@ pub enum ClaimTopic {
     // TODO: social media profiles, blogs, etc.
     ProfileTopic,
     // TODO: real name, business name, nick name, brand name, alias, etc.
-    LabelTopic
+    LabelTopic,
 }
 
 impl FromStr for KeyType {
@@ -66,8 +65,8 @@ impl FromStr for KeyType {
             "ExecutionKey" => Ok(KeyType::ExecutionKey),
             "ClaimSignerKey" => Ok(KeyType::ClaimSignerKey),
             "EncryptionKey" => Ok(KeyType::EncryptionKey),
-            _ => Err(ContractError::InvalidKeyType { 
-                key_type: s.to_string() 
+            _ => Err(ContractError::InvalidKeyType {
+                key_type: s.to_string(),
             }),
         }
     }
@@ -94,8 +93,8 @@ impl FromStr for ClaimTopic {
             "RegistryTopic" => Ok(ClaimTopic::RegistryTopic),
             "ProfileTopic" => Ok(ClaimTopic::ProfileTopic),
             "LabelTopic" => Ok(ClaimTopic::LabelTopic),
-            _ => Err(ContractError::InvalidClaimTopic { 
-                topic: s.to_string() 
+            _ => Err(ContractError::InvalidClaimTopic {
+                topic: s.to_string(),
             }),
         }
     }
