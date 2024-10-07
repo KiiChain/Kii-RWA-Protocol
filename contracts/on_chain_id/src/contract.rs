@@ -10,7 +10,6 @@ use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::key_management::{execute_add_key, execute_remove_key};
 use crate::claim_management::{execute_add_claim, execute_remove_claim};
 use crate::state::{Key, KeyType, Claim, ClaimTopic, KEYS, OWNER, CLAIMS};
-use crate::utils::hash_claim_without_signature;
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:onchainid";

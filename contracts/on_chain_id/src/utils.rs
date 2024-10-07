@@ -51,7 +51,7 @@ pub fn verify_claim_signature(deps: &DepsMut, claim: &Claim, public_key: &Binary
         .map_err(|e| ContractError::LoadError { entity: "issuer keys".to_string(), reason: e.to_string() })?;
     
     // Check if the issuer has a CLAIM_SIGNER_KEY
-    let claim_signer_key = keys.iter().find(|key| key.key_type == KeyType::ClaimSignerKey && key.owner == claim.issuer)
+    let _claim_signer_key = keys.iter().find(|key| key.key_type == KeyType::ClaimSignerKey && key.owner == claim.issuer)
         .ok_or(ContractError::Unauthorized { reason: "Issuer lacks CLAIM_SIGNER_KEY".to_string() })?;
 
     // Hash the claim data (excluding signature)
