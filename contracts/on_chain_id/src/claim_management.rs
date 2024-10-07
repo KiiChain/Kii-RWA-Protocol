@@ -28,7 +28,6 @@ pub fn execute_add_claim(
     let mut claims = CLAIMS.may_load(deps.storage, &owner)
         .map_err(|e| ContractError::LoadError { entity: "claims".to_string(), reason: e.to_string() })?
         .unwrap_or_default();
-    
     // Check if the claim already exists
     if claims.iter().any(|c| c.id == claim.id) {
         return Err(ContractError::ClaimAlreadyExists { 

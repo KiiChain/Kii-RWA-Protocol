@@ -10,6 +10,7 @@ use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::key_management::{execute_add_key, execute_remove_key};
 use crate::claim_management::{execute_add_claim, execute_remove_claim};
 use crate::state::{Key, KeyType, Claim, ClaimTopic, KEYS, OWNER, CLAIMS};
+use crate::utils::hash_claim_without_signature;
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:onchainid";
@@ -77,11 +78,12 @@ fn query_key(deps: Deps, key_owner: String, key_type: String) -> StdResult<Key> 
         .map_err(|e| StdError::generic_err(format!("Invalid key owner address: {}", e)))?;
     let key_type = KeyType::from_str(&key_type)
         .map_err(|_| StdError::generic_err(format!("Invalid key type: {}", key_type)))?;
-    
-    let keys = KEYS.load(deps.storage, &key_owner)
-        .map_err(|e| StdError::generic_err(format!("Failed to load keys for owner {}: {}", key_owner, e)))?;
+    let owner = OWNER.load(deps.storage)
+        .map_err(|e| StdError::generic_err(format!("Failed to load owner: {}", e)))?;
+    let keys = KEYS.load(deps.storage, &owner)
+        .map_err(|e| StdError::generic_err(format!("Failed to load keys for owner {}: {}", owner, e)))?;
     keys.iter()
-        .find(|key| key.key_type == key_type)
+        .find(|key| key.key_type == key_type && key.owner == key_owner)
         .cloned()
         .ok_or_else(|| StdError::not_found(format!("Key not found for owner {} and type {:?}", key_owner, key_type)))
 }
@@ -155,6 +157,8 @@ mod tests {
     use super::*;
     use cosmwasm_std::{Addr, Binary};
     use cw_multi_test::{App, ContractWrapper, Executor};
+    use secp256k1::{Secp256k1, SecretKey, PublicKey, Message};
+    use crate::utils::hash_claim_without_signature;
 
     fn instantiate_contract(app: &mut App, owner: &str) -> Addr {
         let code = ContractWrapper::new(execute, instantiate, query);
@@ -202,7 +206,7 @@ mod tests {
         // Test adding a key
         let msg = ExecuteMsg::AddKey {
             key_owner: key_owner.to_string(),
-            key_type: "ManagementKey".to_string(),
+            key_type: "ExecutionKey".to_string(),
         };
         app.execute_contract(owner_addr.clone(), contract_addr.clone(), &msg, &[])
             .unwrap();
@@ -213,18 +217,17 @@ mod tests {
                 contract_addr.clone(),
                 &QueryMsg::GetKey {
                     key_owner: key_owner.to_string().clone(),
-                    key_type: "ManagementKey".to_string(),
+                    key_type: "ExecutionKey".to_string(),
                 },
             )
             .unwrap();
-        println!("res {:?}", res);
         assert_eq!(res.owner, Addr::unchecked(key_owner.clone()));
-        assert_eq!(res.key_type, KeyType::ManagementKey);
+        assert_eq!(res.key_type, KeyType::ExecutionKey);
 
         // Test removing the key
         let msg = ExecuteMsg::RevokeKey {
             key_owner: key_owner.to_string(),
-            key_type: "ManagementKey".to_string(),
+            key_type: "ExecutionKey".to_string(),
         };
         app.execute_contract(owner_addr, contract_addr.clone(), &msg, &[])
             .unwrap();
@@ -234,7 +237,7 @@ mod tests {
             contract_addr,
             &QueryMsg::GetKey {
                 key_owner: key_owner.to_string(),
-                key_type: "ManagementKey".to_string(),
+                key_type: "ExecutionKey".to_string(),
             },
         );
         assert!(res.is_err());
@@ -247,6 +250,11 @@ mod tests {
         let contract_addr = instantiate_contract(&mut app, owner);
         let owner_addr = app.api().addr_make(owner);
 
+        // Generate a keypair for signing
+        let secp = Secp256k1::new();
+        let secret_key = SecretKey::new(&mut rand::thread_rng());
+        let public_key = PublicKey::from_secret_key(&secp, &secret_key);
+
         // Add a claim signer key first
         let msg = ExecuteMsg::AddKey {
             key_owner: owner_addr.to_string(),
@@ -255,27 +263,44 @@ mod tests {
         app.execute_contract(owner_addr.clone(), contract_addr.clone(), &msg, &[])
             .unwrap();
 
-        // Test adding a claim
+        // Create a claim
         let claim = Claim {
             id: None,
             topic: ClaimTopic::BiometricTopic,
             issuer: owner_addr.clone(),
-            signature: Binary::from(vec![1, 2, 3]),
+            signature: Binary::from(vec![]), // This will be filled later
             data: Binary::from(vec![4, 5, 6]),
             uri: "https://example.com".to_string(),
         };
+
+        // Hash the claim data (excluding signature)
+        let message_hash = hash_claim_without_signature(&claim);
+
+        // Sign the hash
+        let message = Message::from_slice(&message_hash).unwrap();
+        let signature = secp.sign_ecdsa(&message, &secret_key);
+
+        // Create the final claim with the signature
+        let signed_claim = Claim {
+            signature: Binary::from(signature.serialize_compact()),
+            ..claim
+        };
+
+        // Test adding the claim
         let msg = ExecuteMsg::AddClaim {
-            claim: claim.clone(),
-            issuer_signature: Binary::from(vec![7, 8, 9]),
+            claim: signed_claim.clone(),
+            issuer_signature: Binary::from(public_key.serialize()),
         };
         let res = app.execute_contract(owner_addr.clone(), contract_addr.clone(), &msg, &[])
             .unwrap();
+        
+        // Correctly retrieve the claim_id from the attributes
         let claim_id = res.events
             .iter()
             .find(|e| e.ty == "wasm")
             .and_then(|e| e.attributes.iter().find(|attr| attr.key == "claim_id"))
             .map(|attr| attr.value.clone())
-            .unwrap();
+            .expect("Claim ID not found in response");
 
         // Test querying the added claim
         let res: Claim = app
