@@ -48,23 +48,6 @@ jobs:
       RUST_BACKTRACE: 1
       RUSTFLAGS: "-Dwarnings"
 
-  test-old-style:
-    name: Test Suite (Old Style)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-      - uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --all-features --verbose
-    env:
-      RUST_BACKTRACE: 1
-
   fmt:
     name: Rustfmt
     runs-on: ubuntu-latest
