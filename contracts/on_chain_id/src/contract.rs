@@ -69,12 +69,13 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
 }
 
 fn query_key(deps: Deps, key_owner: String, key_type: String) -> StdResult<Key> {
+    let owner = OWNER.load(deps.storage)?;
     let key_owner = deps.api.addr_validate(&key_owner)?;
     let key_type = KeyType::from_str(&key_type).map_err(|_| StdError::generic_err("Invalid key type"))?;
     
-    let keys = KEYS.load(deps.storage, &key_owner)?;
+    let keys = KEYS.load(deps.storage, &owner)?;
     keys.iter()
-        .find(|key| key.key_type == key_type)
+        .find(|key| key.key_type == key_type && key.owner == key_owner)
         .cloned()
         .ok_or_else(|| StdError::not_found("Key not found"))
 }
@@ -175,29 +176,30 @@ mod tests {
         let mut app = App::default();
         let owner = "owner";
         let contract_addr = instantiate_contract(&mut app, owner);
+        let owner_addr = app.api().addr_make(owner);
 
-        let key_owner = "new_key_owner";
+        let key_owner = app.api().addr_make("new_key_owner");
         
         // Test adding a key
         let msg = ExecuteMsg::AddKey {
             key_owner: key_owner.to_string(),
             key_type: "ManagementKey".to_string(),
         };
-        app.execute_contract(Addr::unchecked(owner), contract_addr.clone(), &msg, &[])
+        app.execute_contract(owner_addr.clone(), contract_addr.clone(), &msg, &[])
             .unwrap();
-
         // Test querying the added key
         let res: Key = app
             .wrap()
             .query_wasm_smart(
                 contract_addr.clone(),
                 &QueryMsg::GetKey {
-                    key_owner: key_owner.to_string(),
+                    key_owner: key_owner.to_string().clone(),
                     key_type: "ManagementKey".to_string(),
                 },
             )
             .unwrap();
-        assert_eq!(res.owner, Addr::unchecked(key_owner));
+        println!("res {:?}", res);
+        assert_eq!(res.owner, Addr::unchecked(key_owner.clone()));
         assert_eq!(res.key_type, KeyType::ManagementKey);
 
         // Test removing the key
@@ -205,7 +207,7 @@ mod tests {
             key_owner: key_owner.to_string(),
             key_type: "ManagementKey".to_string(),
         };
-        app.execute_contract(Addr::unchecked(owner), contract_addr.clone(), &msg, &[])
+        app.execute_contract(owner_addr, contract_addr.clone(), &msg, &[])
             .unwrap();
 
         // Verify the key is removed
@@ -224,20 +226,21 @@ mod tests {
         let mut app = App::default();
         let owner = "owner";
         let contract_addr = instantiate_contract(&mut app, owner);
+        let owner_addr = app.api().addr_make(owner);
 
         // Add a claim signer key first
         let msg = ExecuteMsg::AddKey {
-            key_owner: "owner".to_string(),
+            key_owner: owner_addr.to_string(),
             key_type: "ClaimSignerKey".to_string(),
         };
-        app.execute_contract(Addr::unchecked(owner), contract_addr.clone(), &msg, &[])
+        app.execute_contract(owner_addr.clone(), contract_addr.clone(), &msg, &[])
             .unwrap();
 
         // Test adding a claim
         let claim = Claim {
             id: None,
             topic: ClaimTopic::BiometricTopic,
-            issuer: app.api().addr_make("owner"),
+            issuer: owner_addr.clone(),
             signature: Binary::from(vec![1, 2, 3]),
             data: Binary::from(vec![4, 5, 6]),
             uri: "https://example.com".to_string(),
@@ -246,7 +249,7 @@ mod tests {
             claim: claim.clone(),
             issuer_signature: Binary::from(vec![7, 8, 9]),
         };
-        let res = app.execute_contract(Addr::unchecked(owner), contract_addr.clone(), &msg, &[])
+        let res = app.execute_contract(owner_addr.clone(), contract_addr.clone(), &msg, &[])
             .unwrap();
         let claim_id = res.events
             .iter()
@@ -267,7 +270,7 @@ mod tests {
 
         // Test removing the claim
         let msg = ExecuteMsg::RemoveClaim { claim_id: claim_id.clone() };
-        app.execute_contract(Addr::unchecked(owner), contract_addr.clone(), &msg, &[])
+        app.execute_contract(owner_addr.clone(), contract_addr.clone(), &msg, &[])
             .unwrap();
 
         // Verify the claim is removed

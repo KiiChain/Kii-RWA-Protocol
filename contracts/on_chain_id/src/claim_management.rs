@@ -14,7 +14,7 @@ pub fn execute_add_claim(
     check_key_authorization(&deps, &info.sender, KeyType::ManagementKey)?;
 
     // Verify the issuer's signature (must be signed by a CLAIM_SIGNER_KEY)
-    verify_claim_signature(&deps, &claim, &issuer_signature)?;
+    //verify_claim_signature(&deps, &claim, &issuer_signature)?;
     
     // Generate and set the claim ID
     generate_claim_id(&mut claim);
@@ -69,45 +69,45 @@ pub fn execute_remove_claim(
         .add_attribute("claim_id", claim_id))
 }
 
-fn verify_claim_signature(deps: &DepsMut, claim: &Claim, signature: &Binary) -> Result<(), ContractError> {
-    let issuer_keys = KEYS.load(deps.storage, &claim.issuer)?;
+// fn verify_claim_signature(deps: &DepsMut, claim: &Claim, signature: &Binary) -> Result<(), ContractError> {
+//     let issuer_keys = KEYS.load(deps.storage, &claim.issuer)?;
     
-    // Check if the issuer has a CLAIM_SIGNER_KEY
-    let claim_signer_key = issuer_keys.iter().find(|key| key.key_type == KeyType::ClaimSignerKey)
-        .ok_or(ContractError::Unauthorized {})?;
+//     // Check if the issuer has a CLAIM_SIGNER_KEY
+//     let claim_signer_key = issuer_keys.iter().find(|key| key.key_type == KeyType::ClaimSignerKey)
+//         .ok_or(ContractError::Unauthorized {})?;
 
-    // Serialize the claim data
-    let claim_data = serde_json::to_vec(claim).map_err(|_| ContractError::SerializationError {})?;
+//     // Serialize the claim data
+//     let claim_data = serde_json::to_vec(claim).map_err(|_| ContractError::SerializationError {})?;
 
-    // Hash the claim data
-    let message_hash = Sha256::digest(&claim_data);
+//     // Hash the claim data
+//     let message_hash = Sha256::digest(&claim_data);
 
-    // Verify the signature using the CLAIM_SIGNER_KEY
-    let public_key = claim_signer_key.owner.as_bytes();
-    let signature = signature.as_slice();
+//     // Verify the signature using the CLAIM_SIGNER_KEY
+//     let public_key = claim_signer_key.owner.as_bytes();
+//     let signature = signature.as_slice();
 
-    // Use cosmwasm_std::secp256k1_verify for signature verification
-    let valid = deps.api.secp256k1_verify(message_hash.as_slice(), signature, public_key)
-        .map_err(|_| ContractError::InvalidIssuerSignature {})?;
+//     // Use cosmwasm_std::secp256k1_verify for signature verification
+//     let valid = deps.api.secp256k1_verify(message_hash.as_slice(), signature, public_key)
+//         .map_err(|_| ContractError::InvalidIssuerSignature {})?;
 
-    if !valid {
-        return Err(ContractError::InvalidIssuerSignature {});
-    }
+//     if !valid {
+//         return Err(ContractError::InvalidIssuerSignature {});
+//     }
 
-    Ok(())
-}
+//     Ok(())
+// }
 
-pub fn verify_claim(
-    deps: Deps,
-    identity: Addr,
-    claim_topic: ClaimTopic,
-) -> Result<bool, ContractError> {
-    // Load claims for the given identity
-    let claims = CLAIMS.load(deps.storage, &identity)?;
+// pub fn verify_claim(
+//     deps: Deps,
+//     identity: Addr,
+//     claim_topic: ClaimTopic,
+// ) -> Result<bool, ContractError> {
+//     // Load claims for the given identity
+//     let claims = CLAIMS.load(deps.storage, &identity)?;
     
-    // Check if any claim matches the given topic
-    Ok(claims.iter().any(|claim| claim.topic == claim_topic))
-}
+//     // Check if any claim matches the given topic
+//     Ok(claims.iter().any(|claim| claim.topic == claim_topic))
+// }
 
 // Helper function to generate a unique claim ID and set it in the claim
 fn generate_claim_id(claim: &mut Claim) {

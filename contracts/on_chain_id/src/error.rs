@@ -30,6 +30,9 @@ pub enum ContractError {
     #[error("Key not found")]
     KeyNotFound {},
 
+    #[error("No keys found for the given owner")]
+    NoKeysFound {},
+
     #[error("Key already exists")]
     KeyAlreadyExists,
 
