@@ -23,19 +23,23 @@ pub fn instantiate(
     _info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
-    set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+    set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)
+        .map_err(|e| ContractError::Std(StdError::generic_err(format!("Failed to set contract version: {}", e))))?;
     
-    let owner = deps.api.addr_validate(&msg.owner)?;
+    let owner = deps.api.addr_validate(&msg.owner)
+        .map_err(|e| ContractError::InvalidAddress { reason: format!("Invalid owner address: {}", e) })?;
 
     // Create and save the management key for the owner
     let key = Key {
         key_type: KeyType::ManagementKey,
         owner: owner.clone(),
     };
-    KEYS.save(deps.storage, &owner, &vec![key])?;
+    KEYS.save(deps.storage, &owner, &vec![key])
+        .map_err(|e| ContractError::SaveError { entity: "keys".to_string(), reason: e.to_string() })?;
 
     // Save the owner
-    OWNER.save(deps.storage, &owner)?;
+    OWNER.save(deps.storage, &owner)
+        .map_err(|e| ContractError::SaveError { entity: "owner".to_string(), reason: e.to_string() })?;
 
     Ok(Response::default())
 }
@@ -69,30 +73,37 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
 }
 
 fn query_key(deps: Deps, key_owner: String, key_type: String) -> StdResult<Key> {
-    let owner = OWNER.load(deps.storage)?;
-    let key_owner = deps.api.addr_validate(&key_owner)?;
-    let key_type = KeyType::from_str(&key_type).map_err(|_| StdError::generic_err("Invalid key type"))?;
+    let key_owner = deps.api.addr_validate(&key_owner)
+        .map_err(|e| StdError::generic_err(format!("Invalid key owner address: {}", e)))?;
+    let key_type = KeyType::from_str(&key_type)
+        .map_err(|_| StdError::generic_err(format!("Invalid key type: {}", key_type)))?;
     
-    let keys = KEYS.load(deps.storage, &owner)?;
+    let keys = KEYS.load(deps.storage, &key_owner)
+        .map_err(|e| StdError::generic_err(format!("Failed to load keys for owner {}: {}", key_owner, e)))?;
     keys.iter()
-        .find(|key| key.key_type == key_type && key.owner == key_owner)
+        .find(|key| key.key_type == key_type)
         .cloned()
-        .ok_or_else(|| StdError::not_found("Key not found"))
+        .ok_or_else(|| StdError::not_found(format!("Key not found for owner {} and type {:?}", key_owner, key_type)))
 }
 
 fn query_claim(deps: Deps, claim_id: String) -> StdResult<Claim> {
-    let owner = OWNER.load(deps.storage)?;
-    let claims = CLAIMS.load(deps.storage, &owner)?;
+    let owner = OWNER.load(deps.storage)
+        .map_err(|e| StdError::generic_err(format!("Failed to load owner: {}", e)))?;
+    let claims = CLAIMS.load(deps.storage, &owner)
+        .map_err(|e| StdError::generic_err(format!("Failed to load claims for owner {}: {}", owner, e)))?;
     claims.iter()
         .find(|claim| claim.id == Some(claim_id.clone()))
         .cloned()
-        .ok_or_else(|| StdError::not_found("Claim not found"))
+        .ok_or_else(|| StdError::not_found(format!("Claim not found with id: {}", claim_id)))
 }
 
 fn query_claim_ids_by_topic(deps: Deps, topic: String) -> StdResult<Vec<String>> {
-    let topic = ClaimTopic::from_str(&topic).map_err(|_| StdError::parse_err("ClaimTopic", "Invalid topic"))?;
-    let owner = OWNER.load(deps.storage)?;
-    let claims = CLAIMS.load(deps.storage, &owner)?;
+    let topic = ClaimTopic::from_str(&topic)
+        .map_err(|_| StdError::parse_err("ClaimTopic", format!("Invalid topic: {}", topic)))?;
+    let owner = OWNER.load(deps.storage)
+        .map_err(|e| StdError::generic_err(format!("Failed to load owner: {}", e)))?;
+    let claims = CLAIMS.load(deps.storage, &owner)
+        .map_err(|e| StdError::generic_err(format!("Failed to load claims for owner {}: {}", owner, e)))?;
     let claim_ids: Vec<String> = claims
         .iter()
         .filter_map(|claim| {
@@ -107,9 +118,12 @@ fn query_claim_ids_by_topic(deps: Deps, topic: String) -> StdResult<Vec<String>>
 }
 
 fn query_claims_by_issuer(deps: Deps, issuer: String) -> StdResult<Vec<Claim>> {
-    let issuer_addr = deps.api.addr_validate(&issuer)?;
-    let owner = OWNER.load(deps.storage)?;
-    let claims = CLAIMS.load(deps.storage, &owner)?;
+    let issuer_addr = deps.api.addr_validate(&issuer)
+        .map_err(|e| StdError::generic_err(format!("Invalid issuer address: {}", e)))?;
+    let owner = OWNER.load(deps.storage)
+        .map_err(|e| StdError::generic_err(format!("Failed to load owner: {}", e)))?;
+    let claims = CLAIMS.load(deps.storage, &owner)
+        .map_err(|e| StdError::generic_err(format!("Failed to load claims for owner {}: {}", owner, e)))?;
     let filtered_claims: Vec<Claim> = claims
         .into_iter()
         .filter(|claim| claim.issuer == issuer_addr)
@@ -118,17 +132,22 @@ fn query_claims_by_issuer(deps: Deps, issuer: String) -> StdResult<Vec<Claim>> {
 }
 
 fn verify_claim(deps: Deps, claim_id: String, trusted_issuers_registry: String) -> StdResult<bool> {
-    let claim = query_claim(deps, claim_id)?;
+    let claim = query_claim(deps, claim_id.clone())
+        .map_err(|e| StdError::generic_err(format!("Failed to query claim {}: {}", claim_id, e)))?;
     
     // Here you would typically check if the claim issuer is in the trusted issuers registry
     // For this example, we'll just check if the issuer matches the provided registry
     // In a real implementation, you'd want to query an actual registry contract
     
-    Ok(claim.issuer == deps.api.addr_validate(&trusted_issuers_registry)?)
+    let registry_addr = deps.api.addr_validate(&trusted_issuers_registry)
+        .map_err(|e| StdError::generic_err(format!("Invalid trusted issuers registry address: {}", e)))?;
+    
+    Ok(claim.issuer == registry_addr)
 }
 
 fn query_owner(deps: Deps) -> StdResult<Addr> {
     OWNER.load(deps.storage)
+        .map_err(|e| StdError::generic_err(format!("Failed to load owner: {}", e)))
 }
 
 #[cfg(test)]

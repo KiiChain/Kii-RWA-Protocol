@@ -31,35 +31,25 @@ pub struct Claim {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub enum KeyType {
-
     // 1: MANAGEMENT keys, which can manage the identity
     ManagementKey,
-
     // 2: EXECUTION keys, which perform actions in this identities name (signing, logins, transactions, etc.)
     ExecutionKey,
-
     // 3: CLAIM signer keys, used to sign claims on other identities which need to be revokable.
     ClaimSignerKey,
-    
     // 4: ENCRYPTION keys, used to encrypt data e.g. hold in claims.
     EncryptionKey
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub enum ClaimTopic {
-
     // You're a person and not a business
     BiometricTopic,
-
-
     // You have a physical address or reference point
     ResidenceTopic,
-
     RegistryTopic,
-
     // TODO: social media profiles, blogs, etc.
     ProfileTopic,
-
     // TODO: real name, business name, nick name, brand name, alias, etc.
     LabelTopic
 }
@@ -71,7 +61,9 @@ impl KeyType {
             "ExecutionKey" => Ok(KeyType::ExecutionKey),
             "ClaimSignerKey" => Ok(KeyType::ClaimSignerKey),
             "EncryptionKey" => Ok(KeyType::EncryptionKey),
-            _ => Err(ContractError::InvalidKeyPurpose {}),
+            _ => Err(ContractError::InvalidKeyType { 
+                key_type: s.to_string() 
+            }),
         }
     }
 
@@ -93,7 +85,9 @@ impl ClaimTopic {
             "RegistryTopic" => Ok(ClaimTopic::RegistryTopic),
             "ProfileTopic" => Ok(ClaimTopic::ProfileTopic),
             "LabelTopic" => Ok(ClaimTopic::LabelTopic),
-            _ => Err(ContractError::InvalidClaimTopic {}),
+            _ => Err(ContractError::InvalidClaimTopic { 
+                topic: s.to_string() 
+            }),
         }
     }
 
