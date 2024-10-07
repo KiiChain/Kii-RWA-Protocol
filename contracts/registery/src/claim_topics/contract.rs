@@ -111,7 +111,7 @@ pub mod query {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
+    use cosmwasm_std::testing::{message_info, mock_dependencies, mock_env};
     use cosmwasm_std::{from_json, Addr, ContractResult, SystemResult, Uint128};
     use roles::owner_roles::msg::OwnerRole;
     use roles::owner_roles::QueryMsg;
@@ -121,7 +121,7 @@ mod tests {
         let msg = InstantiateMsg {
             owner_roles_address: owner_roles_address.clone(),
         };
-        let info = mock_info("creator", &[]);
+        let info = message_info(&Addr::unchecked("creator"), &[]);
         let _ = instantiate(deps, mock_env(), info, msg).unwrap();
         owner_roles_address
     }
@@ -158,7 +158,7 @@ mod tests {
             _ => panic!("Unexpected query type"),
         });
 
-        let info = mock_info("authorized_user", &[]);
+        let info = message_info(&Addr::unchecked("authorized_user"), &[]);
         let msg = ExecuteMsg::AddClaimTopic {
             topic: Uint128::new(1),
         };
@@ -197,7 +197,7 @@ mod tests {
             _ => panic!("Unexpected query type"),
         });
 
-        let info = mock_info("authorized_user", &[]);
+        let info = message_info(&Addr::unchecked("authorized_user"), &[]);
 
         // First, add a claim topic
         let msg = ExecuteMsg::AddClaimTopic {
