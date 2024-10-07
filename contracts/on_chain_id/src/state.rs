@@ -3,7 +3,6 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use cosmwasm_std::{Addr, Binary};
 use crate::error::ContractError;
-use cosmwasm_schema::cw_serde;
 
 //Addr being the Identity owner
 pub const IDENTITY: Map<&Addr, Identity> = Map::new("identity");

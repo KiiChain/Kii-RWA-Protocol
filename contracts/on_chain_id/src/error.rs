@@ -24,6 +24,9 @@ pub enum ContractError {
     #[error("Error while serializing data")]
     SerializationError {},
 
+    #[error("Error while deserializing data")]
+    DeserializationError {},
+
     #[error("Key not found")]
     KeyNotFound {},
 

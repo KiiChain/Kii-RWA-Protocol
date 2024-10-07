@@ -36,22 +36,18 @@ pub enum QueryMsg {
     },
     #[returns(Claim)]
     GetClaim {
-        key_owner: String,
         claim_id: String,
     },
     #[returns(Vec<String>)]
     GetClaimIdsByTopic {
-        key_owner: String,
         topic: String,
     },
     #[returns(Vec<Claim>)]
     GetClaimsByIssuer {
-        key_owner: String,
         issuer: String,
     },
     #[returns(bool)]
     VerifyClaim {
-        key_owner: String,
         claim_id: String,
         trusted_issuers_registry: String,
     },
