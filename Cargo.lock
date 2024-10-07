@@ -213,9 +213,11 @@ dependencies = [
  "cw-multi-test",
  "cw-storage-plus",
  "cw2",
+ "roles",
  "schemars",
  "serde",
  "thiserror",
+ "utils",
 ]
 
 [[package]]
@@ -1247,6 +1249,10 @@ checksum = "229730647fbc343e3a80e463c1db7f78f3855d3f3739bee0dda773c9a037c90a"
 [[package]]
 name = "utils"
 version = "0.1.0"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+]
 
 [[package]]
 name = "version_check"

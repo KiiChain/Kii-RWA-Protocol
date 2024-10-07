@@ -82,8 +82,8 @@ pub fn query_all_accounts(
 mod tests {
     use super::*;
 
-    use cosmwasm_std::testing::{mock_dependencies_with_balance, mock_env, mock_info};
-    use cosmwasm_std::{coins, from_json, DepsMut, Uint128};
+    use cosmwasm_std::testing::{message_info, mock_dependencies_with_balance, mock_env};
+    use cosmwasm_std::{coins, from_json, Addr, DepsMut, Uint128};
     use cw20::{Cw20Coin, Expiration, TokenInfoResponse};
 
     use crate::contract::{execute, instantiate, query, query_token_info};
@@ -102,7 +102,7 @@ mod tests {
             mint: None,
             marketing: None,
         };
-        let info = mock_info("creator", &[]);
+        let info = message_info(&Addr::unchecked("creator"), &[]);
         let env = mock_env();
         instantiate(deps.branch(), env, info, instantiate_msg).unwrap();
         query_token_info(deps.as_ref()).unwrap()
@@ -117,7 +117,7 @@ mod tests {
         let spender1 = deps.api.addr_make("earlier").to_string();
         let spender2 = deps.api.addr_make("later").to_string();
 
-        let info = mock_info(owner.as_ref(), &[]);
+        let info = message_info(&Addr::unchecked(owner.clone()), &[]);
         let env = mock_env();
         do_instantiate(deps.as_mut(), &owner, Uint128::new(12340000));
 
@@ -186,7 +186,7 @@ mod tests {
         // these are in alphabetical order same than insert order
         let [owner1, owner2, spender] = addresses;
 
-        let info = mock_info(owner1.as_ref(), &[]);
+        let info = message_info(&Addr::unchecked(owner1.clone()), &[]);
         let env = mock_env();
         do_instantiate(deps.as_mut(), &owner1, Uint128::new(12340000));
 
@@ -206,7 +206,7 @@ mod tests {
         execute(deps.as_mut(), env, info, msg).unwrap();
 
         // set allowance with no expiration, from the other owner
-        let info = mock_info(owner2.as_ref(), &[]);
+        let info = message_info(&Addr::unchecked(owner2.clone()), &[]);
         let env = mock_env();
         do_instantiate(deps.as_mut(), &owner2, Uint128::new(12340000));
 
@@ -273,7 +273,7 @@ mod tests {
         do_instantiate(deps.as_mut(), &acct1, Uint128::new(12340000));
 
         // put money everywhere (to create balanaces)
-        let info = mock_info(acct1.as_ref(), &[]);
+        let info = message_info(&Addr::unchecked(acct1.clone()), &[]);
         let env = mock_env();
         execute(
             deps.as_mut(),

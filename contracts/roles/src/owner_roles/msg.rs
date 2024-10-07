@@ -1,3 +1,5 @@
+use std::fmt;
+
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Addr, Uint128};
 
@@ -68,17 +70,16 @@ pub enum OwnerRole {
     TokenInfoManager,
 }
 
-impl ToString for OwnerRole {
-    fn to_string(&self) -> String {
+impl fmt::Display for OwnerRole {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            OwnerRole::OwnerAdmin => "owner_admin",
-            OwnerRole::RegistryAddressSetter => "registry_address_setter",
-            OwnerRole::ComplianceSetter => "compliance_setter",
-            OwnerRole::ComplianceManager => "compliance_manager",
-            OwnerRole::ClaimRegistryManager => "claim_registry_manager",
-            OwnerRole::IssuersRegistryManager => "issuers_registry_manager",
-            OwnerRole::TokenInfoManager => "token_info_manager",
+            OwnerRole::OwnerAdmin => write!(f, "owner_admin"),
+            OwnerRole::RegistryAddressSetter => write!(f, "registry_address_setter"),
+            OwnerRole::ComplianceSetter => write!(f, "compliance_setter"),
+            OwnerRole::ComplianceManager => write!(f, "compliance_manager"),
+            OwnerRole::ClaimRegistryManager => write!(f, "claim_registry_manager"),
+            OwnerRole::IssuersRegistryManager => write!(f, "issuers_registry_manager"),
+            OwnerRole::TokenInfoManager => write!(f, "token_info_manager"),
         }
-        .into()
     }
 }

@@ -384,7 +384,7 @@ mod test {
     use crate::test_helpers::*;
 
     use cosmwasm_schema::cw_serde;
-    use cosmwasm_std::testing::{mock_env, mock_info, MOCK_CONTRACT_ADDR};
+    use cosmwasm_std::testing::{message_info, mock_env, MOCK_CONTRACT_ADDR};
     use cosmwasm_std::{coin, coins, CosmosMsg, IbcMsg, StdError, Uint128};
 
     use easy_addr::addr;
@@ -443,7 +443,7 @@ mod test {
 
         // works with proper funds
         let msg = ExecuteMsg::Transfer(transfer.clone());
-        let info = mock_info(foobar, &coins(1234567, "ucosm"));
+        let info = message_info(&Addr::unchecked(foobar), &coins(1234567, "ucosm"));
         let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(res.messages[0].gas_limit, None);
         assert_eq!(1, res.messages.len());
@@ -467,20 +467,23 @@ mod test {
 
         // reject with no funds
         let msg = ExecuteMsg::Transfer(transfer.clone());
-        let info = mock_info(foobar, &[]);
+        let info = message_info(&Addr::unchecked("foobar"), &[]);
         let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         assert_eq!(err, ContractError::Payment(PaymentError::NoFunds {}));
 
         // reject with multiple tokens funds
         let msg = ExecuteMsg::Transfer(transfer.clone());
-        let info = mock_info(foobar, &[coin(1234567, "ucosm"), coin(54321, "uatom")]);
+        let info = message_info(
+            &Addr::unchecked("foobar"),
+            &[coin(1234567, "ucosm"), coin(54321, "uatom")],
+        );
         let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         assert_eq!(err, ContractError::Payment(PaymentError::MultipleDenoms {}));
 
         // reject with bad channel id
         transfer.channel = "channel-45".to_string();
         let msg = ExecuteMsg::Transfer(transfer);
-        let info = mock_info(foobar, &coins(1234567, "ucosm"));
+        let info = message_info(&Addr::unchecked("foobar"), &coins(1234567, "ucosm"));
         let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         assert_eq!(
             err,
@@ -511,7 +514,7 @@ mod test {
         });
 
         // works with proper funds
-        let info = mock_info(cw20_addr, &[]);
+        let info = message_info(&Addr::unchecked(cw20_addr), &[]);
         let res = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
         assert_eq!(1, res.messages.len());
         assert_eq!(res.messages[0].gas_limit, None);
@@ -534,7 +537,7 @@ mod test {
         }
 
         // reject with tokens funds
-        let info = mock_info("foobar", &coins(1234567, "ucosm"));
+        let info = message_info(&Addr::unchecked("foobar"), &coins(1234567, "ucosm"));
         let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         assert_eq!(err, ContractError::Payment(PaymentError::NonPayable {}));
     }
@@ -561,7 +564,7 @@ mod test {
         });
 
         // rejected as not on allow list
-        let info = mock_info(cw20_addr, &[]);
+        let info = message_info(&Addr::unchecked(cw20_addr), &[]);
         let err = execute(deps.as_mut(), mock_env(), info.clone(), msg.clone()).unwrap_err();
         assert_eq!(err, ContractError::NotOnAllowList);
 
@@ -641,7 +644,7 @@ mod test {
 
         // works with proper funds
         let msg = ExecuteMsg::Transfer(transfer);
-        let info = mock_info(foobar, &coins(1234567, "ucosm"));
+        let info = message_info(&Addr::unchecked("foobar"), &coins(1234567, "ucosm"));
         let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(res.messages[0].gas_limit, None);
         assert_eq!(1, res.messages.len());
@@ -690,7 +693,7 @@ mod test {
         .unwrap();
 
         let msg = ExecuteMsg::Transfer(transfer);
-        let info = mock_info("foobar", &coins(1234567, "ucosm"));
+        let info = message_info(&Addr::unchecked("foobar"), &coins(1234567, "ucosm"));
         let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(1, res.messages.len());
         if let CosmosMsg::Ibc(IbcMsg::SendPacket {

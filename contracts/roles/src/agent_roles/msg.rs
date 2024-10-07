@@ -1,3 +1,5 @@
+use std::fmt;
+
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Addr, Uint128};
 
@@ -67,17 +69,16 @@ pub enum AgentRole {
     AgentAdmin,
 }
 
-impl ToString for AgentRole {
-    fn to_string(&self) -> String {
+impl fmt::Display for AgentRole {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            AgentRole::SupplyModifiers => "supplyModifiers",
-            AgentRole::Freezers => "freezers",
-            AgentRole::TransferManager => "transferManager",
-            AgentRole::RecoveryAgents => "recoveryAgents",
-            AgentRole::ComplianceAgent => "complianceAgent",
-            AgentRole::WhiteListManages => "whiteListManages",
-            AgentRole::AgentAdmin => "agentAdmin",
+            AgentRole::SupplyModifiers => write!(f, "supplyModifiers"),
+            AgentRole::Freezers => write!(f, "freezers"),
+            AgentRole::TransferManager => write!(f, "transferManager"),
+            AgentRole::RecoveryAgents => write!(f, "recoveryAgents"),
+            AgentRole::ComplianceAgent => write!(f, "complianceAgent"),
+            AgentRole::WhiteListManages => write!(f, "whiteListManages"),
+            AgentRole::AgentAdmin => write!(f, "agentAdmin"),
         }
-        .into()
     }
 }
