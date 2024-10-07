@@ -126,6 +126,11 @@ pub fn instantiate(
         total_supply,
         mint,
     };
+    let compliance_addr = deps
+        .api
+        .addr_validate(&msg.registeries.compliance_address)?;
+    COMPLIANCE_ADDRESS.save(deps.storage, &compliance_addr)?;
+
     TOKEN_INFO.save(deps.storage, &data)?;
 
     if let Some(marketing) = msg.token_info.marketing {
@@ -663,12 +668,15 @@ pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, C
 #[cfg(test)]
 mod tests {
     use cosmwasm_std::testing::{
-        message_info, mock_dependencies, mock_dependencies_with_balance, mock_env,
+        message_info, mock_dependencies, mock_dependencies_with_balance, mock_env, MockApi,
     };
-    use cosmwasm_std::{coins, from_json, Addr, CosmosMsg, StdError, SubMsg, WasmMsg};
+    use cosmwasm_std::{
+        coins, from_json, Addr, ContractResult, CosmosMsg, StdError, SubMsg, SystemResult, WasmMsg,
+    };
 
     use super::*;
     use crate::msg::{InstantiateMarketingInfo, InstantiateTokenInfo, Registeries};
+    use utils::QueryMsg::CheckTokenCompliance;
 
     fn get_balance<T: Into<String>>(deps: Deps, address: T) -> Uint128 {
         query_balance(deps, address.into()).unwrap().balance
@@ -718,7 +726,7 @@ mod tests {
                 marketing: None,
             },
             registeries: Registeries {
-                compliance_address: "compliance_addr".to_string(),
+                compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
             },
         };
         let info = message_info(&Addr::unchecked("creator"), &[]);
@@ -764,7 +772,7 @@ mod tests {
                     marketing: None,
                 },
                 registeries: Registeries {
-                    compliance_address: "compliance_addr".to_string(),
+                    compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
                 },
             };
             let info = message_info(&Addr::unchecked("creator"), &[]);
@@ -807,7 +815,7 @@ mod tests {
                     marketing: None,
                 },
                 registeries: Registeries {
-                    compliance_address: "compliance_addr".to_string(),
+                    compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
                 },
             };
             let info = message_info(&Addr::unchecked("creator"), &[]);
@@ -857,7 +865,7 @@ mod tests {
                     marketing: None,
                 },
                 registeries: Registeries {
-                    compliance_address: "compliance_addr".to_string(),
+                    compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
                 },
             };
             let info = message_info(&Addr::unchecked("creator"), &[]);
@@ -893,7 +901,9 @@ mod tests {
                         }),
                     },
                     registeries: Registeries {
-                        compliance_address: "compliance_addr".to_string(),
+                        compliance_address: MockApi::default()
+                            .addr_make("compliance_addr")
+                            .to_string(),
                     },
                 };
                 let info = message_info(&Addr::unchecked("creator"), &[]);
@@ -936,7 +946,9 @@ mod tests {
                         }),
                     },
                     registeries: Registeries {
-                        compliance_address: "compliance_addr".to_string(),
+                        compliance_address: MockApi::default()
+                            .addr_make("compliance_addr")
+                            .to_string(),
                     },
                 };
 
@@ -961,6 +973,22 @@ mod tests {
         let amount = Uint128::new(11223344);
         let minter = deps.api.addr_make("asmodat").to_string();
         let limit = Uint128::new(511223344);
+
+        // Mock the compliance query
+        deps.querier.update_wasm(|query| match query {
+            cosmwasm_std::WasmQuery::Smart { msg, .. } => {
+                let parsed: utils::QueryMsg = from_json(msg).unwrap();
+                match parsed {
+                    CheckTokenCompliance {
+                        token_address: _,
+                        from: _,
+                        to: _,
+                        amount: _,
+                    } => SystemResult::Ok(ContractResult::Ok(to_json_binary(&true).unwrap())),
+                }
+            }
+            _ => panic!("Unexpected query type"),
+        });
         do_instantiate_with_minter(deps.as_mut(), &genesis, amount, &minter, Some(limit));
 
         // minter can mint coins to some winner
@@ -1006,6 +1034,22 @@ mod tests {
         let genesis = deps.api.addr_make("genesis").to_string();
         let minter = deps.api.addr_make("minter").to_string();
         let winner = deps.api.addr_make("winner").to_string();
+
+        // Mock the compliance query
+        deps.querier.update_wasm(|query| match query {
+            cosmwasm_std::WasmQuery::Smart { msg, .. } => {
+                let parsed: utils::QueryMsg = from_json(msg).unwrap();
+                match parsed {
+                    CheckTokenCompliance {
+                        token_address: _,
+                        from: _,
+                        to: _,
+                        amount: _,
+                    } => SystemResult::Ok(ContractResult::Ok(to_json_binary(&true).unwrap())),
+                }
+            }
+            _ => panic!("Unexpected query type"),
+        });
 
         do_instantiate_with_minter(deps.as_mut(), &genesis, Uint128::new(1234), &minter, None);
 
@@ -1074,8 +1118,23 @@ mod tests {
         let genesis = deps.api.addr_make("genesis").to_string();
         let minter = deps.api.addr_make("minter").to_string();
         let winner = deps.api.addr_make("winner").to_string();
-
         let cap = None;
+
+        // Mock the compliance query
+        deps.querier.update_wasm(|query| match query {
+            cosmwasm_std::WasmQuery::Smart { msg, .. } => {
+                let parsed: utils::QueryMsg = from_json(msg).unwrap();
+                match parsed {
+                    CheckTokenCompliance {
+                        token_address: _,
+                        from: _,
+                        to: _,
+                        amount: _,
+                    } => SystemResult::Ok(ContractResult::Ok(to_json_binary(&true).unwrap())),
+                }
+            }
+            _ => panic!("Unexpected query type"),
+        });
         do_instantiate_with_minter(deps.as_mut(), &genesis, Uint128::new(1234), &minter, cap);
 
         let msg = ExecuteMsg::UpdateMinter { new_minter: None };
@@ -1108,6 +1167,22 @@ mod tests {
 
         let genesis = deps.api.addr_make("genesis").to_string();
         let winner = deps.api.addr_make("winner").to_string();
+
+        // Mock the compliance query
+        deps.querier.update_wasm(|query| match query {
+            cosmwasm_std::WasmQuery::Smart { msg, .. } => {
+                let parsed: utils::QueryMsg = from_json(msg).unwrap();
+                match parsed {
+                    CheckTokenCompliance {
+                        token_address: _,
+                        from: _,
+                        to: _,
+                        amount: _,
+                    } => SystemResult::Ok(ContractResult::Ok(to_json_binary(&true).unwrap())),
+                }
+            }
+            _ => panic!("Unexpected query type"),
+        });
 
         do_instantiate(deps.as_mut(), &genesis, Uint128::new(1234));
 
@@ -1151,7 +1226,7 @@ mod tests {
                 marketing: None,
             },
             registeries: Registeries {
-                compliance_address: "compliance_addr".to_string(),
+                compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
             },
         };
         let err =
@@ -1178,7 +1253,7 @@ mod tests {
                 marketing: None,
             },
             registeries: Registeries {
-                compliance_address: "compliance_addr".to_string(),
+                compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
             },
         };
         let res = instantiate(deps.as_mut(), env, info, instantiate_msg).unwrap();
@@ -1238,6 +1313,22 @@ mod tests {
         let transfer = Uint128::from(76543u128);
         let too_much = Uint128::from(12340321u128);
 
+        // Mock the compliance query
+        deps.querier.update_wasm(|query| match query {
+            cosmwasm_std::WasmQuery::Smart { msg, .. } => {
+                let parsed: utils::QueryMsg = from_json(msg).unwrap();
+                match parsed {
+                    CheckTokenCompliance {
+                        token_address: _,
+                        from: _,
+                        to: _,
+                        amount: _,
+                    } => SystemResult::Ok(ContractResult::Ok(to_json_binary(&true).unwrap())),
+                }
+            }
+            _ => panic!("Unexpected query type"),
+        });
+
         do_instantiate(deps.as_mut(), &addr1, amount1);
 
         // Allows transferring 0
@@ -1296,6 +1387,22 @@ mod tests {
         let burn = Uint128::from(76543u128);
         let too_much = Uint128::from(12340321u128);
 
+        // Mock the compliance query
+        deps.querier.update_wasm(|query| match query {
+            cosmwasm_std::WasmQuery::Smart { msg, .. } => {
+                let parsed: utils::QueryMsg = from_json(msg).unwrap();
+                match parsed {
+                    CheckTokenCompliance {
+                        token_address: _,
+                        from: _,
+                        to: _,
+                        amount: _,
+                    } => SystemResult::Ok(ContractResult::Ok(to_json_binary(&true).unwrap())),
+                }
+            }
+            _ => panic!("Unexpected query type"),
+        });
+
         do_instantiate(deps.as_mut(), &addr1, amount1);
 
         // Allows burning 0
@@ -1346,6 +1453,21 @@ mod tests {
         let too_much = Uint128::from(12340321u128);
         let send_msg = Binary::from(r#"{"some":123}"#.as_bytes());
 
+        // Mock the compliance query
+        deps.querier.update_wasm(|query| match query {
+            cosmwasm_std::WasmQuery::Smart { msg, .. } => {
+                let parsed: utils::QueryMsg = from_json(msg).unwrap();
+                match parsed {
+                    CheckTokenCompliance {
+                        token_address: _,
+                        from: _,
+                        to: _,
+                        amount: _,
+                    } => SystemResult::Ok(ContractResult::Ok(to_json_binary(&true).unwrap())),
+                }
+            }
+            _ => panic!("Unexpected query type"),
+        });
         do_instantiate(deps.as_mut(), &addr1, amount1);
 
         // Allows sending 0
@@ -1452,7 +1574,9 @@ mod tests {
                             marketing: None,
                         },
                         registeries: Registeries {
-                            compliance_address: "compliance_addr".to_string(),
+                            compliance_address: MockApi::default()
+                                .addr_make("compliance_addr")
+                                .to_string(),
                         },
                     },
                     &[],
@@ -1562,7 +1686,7 @@ mod tests {
                     }),
                 },
                 registeries: Registeries {
-                    compliance_address: "compliance_addr".to_string(),
+                    compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
                 },
             };
 
@@ -1623,7 +1747,7 @@ mod tests {
                     }),
                 },
                 registeries: Registeries {
-                    compliance_address: "compliance_addr".to_string(),
+                    compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
                 },
             };
 
@@ -1683,7 +1807,7 @@ mod tests {
                     }),
                 },
                 registeries: Registeries {
-                    compliance_address: "compliance_addr".to_string(),
+                    compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
                 },
             };
 
@@ -1743,7 +1867,7 @@ mod tests {
                     }),
                 },
                 registeries: Registeries {
-                    compliance_address: "compliance_addr".to_string(),
+                    compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
                 },
             };
 
@@ -1803,7 +1927,7 @@ mod tests {
                     }),
                 },
                 registeries: Registeries {
-                    compliance_address: "compliance_addr".to_string(),
+                    compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
                 },
             };
 
@@ -1864,7 +1988,7 @@ mod tests {
                     }),
                 },
                 registeries: Registeries {
-                    compliance_address: "compliance_addr".to_string(),
+                    compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
                 },
             };
             let info = message_info(&creator, &[]);
@@ -1923,7 +2047,7 @@ mod tests {
                     }),
                 },
                 registeries: Registeries {
-                    compliance_address: "compliance_addr".to_string(),
+                    compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
                 },
             };
             let info = message_info(&creator, &[]);
@@ -1985,7 +2109,7 @@ mod tests {
                     }),
                 },
                 registeries: Registeries {
-                    compliance_address: "compliance_addr".to_string(),
+                    compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
                 },
             };
 
@@ -2045,7 +2169,7 @@ mod tests {
                     }),
                 },
                 registeries: Registeries {
-                    compliance_address: "compliance_addr".to_string(),
+                    compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
                 },
             };
 
@@ -2101,7 +2225,7 @@ mod tests {
                     }),
                 },
                 registeries: Registeries {
-                    compliance_address: "compliance_addr".to_string(),
+                    compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
                 },
             };
 
@@ -2159,7 +2283,7 @@ mod tests {
                     }),
                 },
                 registeries: Registeries {
-                    compliance_address: "compliance_addr".to_string(),
+                    compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
                 },
             };
 
@@ -2218,7 +2342,7 @@ mod tests {
                     }),
                 },
                 registeries: Registeries {
-                    compliance_address: "compliance_addr".to_string(),
+                    compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
                 },
             };
 
@@ -2275,7 +2399,7 @@ mod tests {
                     }),
                 },
                 registeries: Registeries {
-                    compliance_address: "compliance_addr".to_string(),
+                    compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
                 },
             };
 
@@ -2339,7 +2463,7 @@ mod tests {
                     }),
                 },
                 registeries: Registeries {
-                    compliance_address: "compliance_addr".to_string(),
+                    compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
                 },
             };
 
@@ -2396,7 +2520,7 @@ mod tests {
                     }),
                 },
                 registeries: Registeries {
-                    compliance_address: "compliance_addr".to_string(),
+                    compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
                 },
             };
 
