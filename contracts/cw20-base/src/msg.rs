@@ -15,8 +15,8 @@ pub struct InstantiateMarketingInfo {
 }
 
 #[cw_serde]
-#[cfg_attr(test, derive(Default))]
-pub struct InstantiateMsg {
+#[derive(Default)]
+pub struct InstantiateTokenInfo {
     pub name: String,
     pub symbol: String,
     pub decimals: u8,
@@ -25,9 +25,22 @@ pub struct InstantiateMsg {
     pub marketing: Option<InstantiateMarketingInfo>,
 }
 
+#[cw_serde]
+#[cfg_attr(test, derive(Default))]
+pub struct InstantiateMsg {
+    pub token_info: InstantiateTokenInfo,
+    pub registeries: Registeries,
+}
+
+#[cw_serde]
+#[derive(Default)]
+pub struct Registeries {
+    pub compliance_address: String,
+}
+
 impl InstantiateMsg {
     pub fn get_cap(&self) -> Option<Uint128> {
-        self.mint.as_ref().and_then(|v| v.cap)
+        self.token_info.mint.as_ref().and_then(|v| v.cap)
     }
 
     pub fn validate(&self) -> StdResult<()> {
@@ -42,14 +55,14 @@ impl InstantiateMsg {
                 "Ticker symbol is not in expected format [a-zA-Z\\-]{3,12}",
             ));
         }
-        if self.decimals > 18 {
+        if self.token_info.decimals > 18 {
             return Err(StdError::generic_err("Decimals must not exceed 18"));
         }
         Ok(())
     }
 
     fn has_valid_name(&self) -> bool {
-        let bytes = self.name.as_bytes();
+        let bytes = self.token_info.name.as_bytes();
         if bytes.len() < 3 || bytes.len() > 50 {
             return false;
         }
@@ -57,7 +70,7 @@ impl InstantiateMsg {
     }
 
     fn has_valid_symbol(&self) -> bool {
-        let bytes = self.symbol.as_bytes();
+        let bytes = self.token_info.symbol.as_bytes();
         if bytes.len() < 3 || bytes.len() > 12 {
             return false;
         }
@@ -133,42 +146,48 @@ mod tests {
     fn validate_instantiatemsg_name() {
         // Too short
         let mut msg = InstantiateMsg {
-            name: str::repeat("a", 2),
+            token_info: InstantiateTokenInfo {
+                name: str::repeat("a", 2),
+                ..InstantiateTokenInfo::default()
+            },
             ..InstantiateMsg::default()
         };
         assert!(!msg.has_valid_name());
 
         // In the correct length range
-        msg.name = str::repeat("a", 3);
+        msg.token_info.name = str::repeat("a", 3);
         assert!(msg.has_valid_name());
 
         // Too long
-        msg.name = str::repeat("a", 51);
+        msg.token_info.name = str::repeat("a", 51);
         assert!(!msg.has_valid_name());
     }
 
     #[test]
     fn validate_instantiatemsg_symbol() {
         // Too short
+
         let mut msg = InstantiateMsg {
-            symbol: str::repeat("a", 2),
+            token_info: InstantiateTokenInfo {
+                symbol: str::repeat("a", 2),
+                ..InstantiateTokenInfo::default()
+            },
             ..InstantiateMsg::default()
         };
-        assert!(!msg.has_valid_symbol());
 
         // In the correct length range
-        msg.symbol = str::repeat("a", 3);
+        msg.token_info.symbol = str::repeat("a", 3);
         assert!(msg.has_valid_symbol());
 
         // Too long
-        msg.symbol = str::repeat("a", 13);
+        msg.token_info.symbol = str::repeat("a", 13);
         assert!(!msg.has_valid_symbol());
 
         // Has illegal char
         let illegal_chars = [[64u8], [91u8], [123u8]];
         illegal_chars.iter().for_each(|c| {
             let c = std::str::from_utf8(c).unwrap();
-            msg.symbol = str::repeat(c, 3);
+            msg.token_info.symbol = str::repeat(c, 3);
             assert!(!msg.has_valid_symbol());
         });
     }

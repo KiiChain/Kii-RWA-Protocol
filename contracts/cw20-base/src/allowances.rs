@@ -261,7 +261,7 @@ mod tests {
     use cw20::{Cw20Coin, TokenInfoResponse};
 
     use crate::contract::{execute, instantiate, query_balance, query_token_info};
-    use crate::msg::{ExecuteMsg, InstantiateMsg};
+    use crate::msg::{ExecuteMsg, InstantiateMsg, InstantiateTokenInfo, Registeries};
 
     fn get_balance<T: Into<String>>(deps: Deps, address: T) -> Uint128 {
         query_balance(deps, address.into()).unwrap().balance
@@ -274,15 +274,20 @@ mod tests {
         amount: Uint128,
     ) -> TokenInfoResponse {
         let instantiate_msg = InstantiateMsg {
-            name: "Auto Gen".to_string(),
-            symbol: "AUTO".to_string(),
-            decimals: 3,
-            initial_balances: vec![Cw20Coin {
-                address: addr.into(),
-                amount,
-            }],
-            mint: None,
-            marketing: None,
+            token_info: InstantiateTokenInfo {
+                name: "Auto Gen".to_string(),
+                symbol: "AUTO".to_string(),
+                decimals: 3,
+                initial_balances: vec![Cw20Coin {
+                    address: addr.into(),
+                    amount,
+                }],
+                mint: None,
+                marketing: None,
+            },
+            registeries: Registeries {
+                compliance_address: "compliance_addr".to_string(),
+            },
         };
         let info = message_info(&Addr::unchecked("creator"), &[]);
         let env = mock_env();

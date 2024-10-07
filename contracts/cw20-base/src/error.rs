@@ -40,4 +40,7 @@ pub enum ContractError {
 
     #[error("Duplicate initial balance addresses")]
     DuplicateInitialBalanceAddresses {},
+
+    #[error("Compliance check failed")]
+    ComplianceCheckFailed,
 }

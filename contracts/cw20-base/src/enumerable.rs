@@ -87,20 +87,25 @@ mod tests {
     use cw20::{Cw20Coin, Expiration, TokenInfoResponse};
 
     use crate::contract::{execute, instantiate, query, query_token_info};
-    use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
+    use crate::msg::{ExecuteMsg, InstantiateMsg, InstantiateTokenInfo, QueryMsg, Registeries};
 
     // this will set up the instantiation for other tests
     fn do_instantiate(mut deps: DepsMut, addr: &str, amount: Uint128) -> TokenInfoResponse {
         let instantiate_msg = InstantiateMsg {
-            name: "Auto Gen".to_string(),
-            symbol: "AUTO".to_string(),
-            decimals: 3,
-            initial_balances: vec![Cw20Coin {
-                address: addr.into(),
-                amount,
-            }],
-            mint: None,
-            marketing: None,
+            token_info: InstantiateTokenInfo {
+                name: "Auto Gen".to_string(),
+                symbol: "AUTO".to_string(),
+                decimals: 3,
+                initial_balances: vec![Cw20Coin {
+                    address: addr.into(),
+                    amount,
+                }],
+                mint: None,
+                marketing: None,
+            },
+            registeries: Registeries {
+                compliance_address: "compliance_addr".to_string(),
+            },
         };
         let info = message_info(&Addr::unchecked("creator"), &[]);
         let env = mock_env();
