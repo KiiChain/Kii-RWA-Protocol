@@ -45,3 +45,10 @@ pub enum ContractError {
     #[error("Identity not found")]
     IdentityNotFound {},
 }
+
+
+impl From<ContractError> for StdError {
+    fn from(error: ContractError) -> Self {
+        StdError::generic_err(error.to_string())
+    }
+}

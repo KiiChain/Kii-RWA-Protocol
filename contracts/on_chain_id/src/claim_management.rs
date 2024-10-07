@@ -1,6 +1,6 @@
 use cosmwasm_std::{DepsMut, MessageInfo, Response, Binary, Deps, Addr};
 use crate::error::ContractError;
-use crate::state::{Claim, ClaimTopic, KeyType, IDENTITY};
+use crate::state::{Claim, ClaimTopic, KeyType, CLAIMS, KEYS, OWNER};
 use crate::utils::check_key_authorization;
 use sha2::{Sha256, Digest};
 
@@ -10,26 +10,31 @@ pub fn execute_add_claim(
     mut claim: Claim,
     issuer_signature: Binary,
 ) -> Result<Response, ContractError> {
-
     // Check if the sender is authorized to add claims (must have a MANAGEMENT_KEY)
     check_key_authorization(&deps, &info.sender, KeyType::ManagementKey)?;
 
     // Verify the issuer's signature (must be signed by a CLAIM_SIGNER_KEY)
     verify_claim_signature(&deps, &claim, &issuer_signature)?;
-
-    let mut identity = IDENTITY.load(deps.storage, &info.sender)?;
     
     // Generate and set the claim ID
     generate_claim_id(&mut claim);
     
+    // Get the owner of the identity
+    let owner = OWNER.load(deps.storage)?;
+    
+    // Load existing claims or create a new vector if none exist
+    let mut claims = CLAIMS.may_load(deps.storage, &owner)?.unwrap_or_default();
+    
     // Check if the claim already exists
-    if identity.claims.iter().any(|c| c.id == claim.id) {
+    if claims.iter().any(|c| c.id == claim.id) {
         return Err(ContractError::ClaimAlreadyExists {});
     }
 
-    identity.claims.push(claim.clone());
+    // Add the new claim
+    claims.push(claim.clone());
 
-    IDENTITY.save(deps.storage, &info.sender, &identity)?;
+    // Save the updated claims
+    CLAIMS.save(deps.storage, &owner, &claims)?;
 
     Ok(Response::new()
         .add_attribute("action", "add_claim")
@@ -41,16 +46,23 @@ pub fn execute_remove_claim(
     info: MessageInfo,
     claim_id: String,
 ) -> Result<Response, ContractError> {
-
     // Check if the sender is authorized to remove claims (must have a MANAGEMENT_KEY)
     check_key_authorization(&deps, &info.sender, KeyType::ManagementKey)?;
 
-    let mut identity = IDENTITY.load(deps.storage, &info.sender)?;
+    // Get the owner of the identity
+    let owner = OWNER.load(deps.storage)?;
+    
+    // Load existing claims
+    let mut claims = CLAIMS.load(deps.storage, &owner)?;
 
     // Find and remove the claim
-    identity.claims.retain(|c| c.id.as_ref() != Some(&claim_id));
-
-    IDENTITY.save(deps.storage, &info.sender, &identity)?;
+    if let Some(index) = claims.iter().position(|c| c.id == Some(claim_id.clone())) {
+        claims.remove(index);
+        // Save the updated claims
+        CLAIMS.save(deps.storage, &owner, &claims)?;
+    } else {
+        return Err(ContractError::ClaimNotFound {});
+    }
 
     Ok(Response::new()
         .add_attribute("action", "remove_claim")
@@ -58,11 +70,10 @@ pub fn execute_remove_claim(
 }
 
 fn verify_claim_signature(deps: &DepsMut, claim: &Claim, signature: &Binary) -> Result<(), ContractError> {
-    let issuer_identity = IDENTITY.load(deps.storage, &claim.issuer)?;
+    let issuer_keys = KEYS.load(deps.storage, &claim.issuer)?;
     
-    // Find a CLAIM_SIGNER_KEY for the issuer
-    let claim_signer_key = issuer_identity.keys.iter()
-        .find(|k| k.key_type == KeyType::ClaimSignerKey)
+    // Check if the issuer has a CLAIM_SIGNER_KEY
+    let claim_signer_key = issuer_keys.iter().find(|key| key.key_type == KeyType::ClaimSignerKey)
         .ok_or(ContractError::Unauthorized {})?;
 
     // Serialize the claim data
@@ -72,7 +83,7 @@ fn verify_claim_signature(deps: &DepsMut, claim: &Claim, signature: &Binary) -> 
     let message_hash = Sha256::digest(&claim_data);
 
     // Verify the signature using the CLAIM_SIGNER_KEY
-    let public_key = &claim_signer_key.owner.as_bytes();
+    let public_key = claim_signer_key.owner.as_bytes();
     let signature = signature.as_slice();
 
     // Use cosmwasm_std::secp256k1_verify for signature verification
@@ -91,17 +102,11 @@ pub fn verify_claim(
     identity: Addr,
     claim_topic: ClaimTopic,
 ) -> Result<bool, ContractError> {
-    let identity = IDENTITY.load(deps.storage, &identity)?;
+    // Load claims for the given identity
+    let claims = CLAIMS.load(deps.storage, &identity)?;
     
-    for claim in &identity.claims {
-        if claim.topic == claim_topic {
-            // Here you might want to add additional verification steps,
-            // such as checking if the claim is still valid (not expired)
-            return Ok(true);
-        }
-    }
-
-    Ok(false)
+    // Check if any claim matches the given topic
+    Ok(claims.iter().any(|claim| claim.topic == claim_topic))
 }
 
 // Helper function to generate a unique claim ID and set it in the claim

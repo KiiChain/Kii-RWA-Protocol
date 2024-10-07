@@ -1,10 +1,10 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{Binary, Addr};
+use cosmwasm_std::Binary;
 use crate::state::{Key, Claim};
 
 #[cw_serde]
 pub struct InstantiateMsg {
-    pub owner: Addr,
+    pub owner: String,
 }
 
 #[cw_serde]
@@ -51,6 +51,6 @@ pub enum QueryMsg {
         claim_id: String,
         trusted_issuers_registry: String,
     },
-    #[returns(Addr)]
+    #[returns(String)]
     GetOwner {},
 }

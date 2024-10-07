@@ -4,17 +4,14 @@ use serde::{Deserialize, Serialize};
 use cosmwasm_std::{Addr, Binary};
 use crate::error::ContractError;
 
+//Addr being the Key owner
+pub const KEYS: Map<&Addr, Vec<Key>> = Map::new("keys");
+
 //Addr being the Identity owner
-pub const IDENTITY: Map<&Addr, Identity> = Map::new("identity");
+pub const CLAIMS: Map<&Addr, Vec<Claim>> = Map::new("claims");
 
+//Addr being the Owner of the Identity (not to be confused with the Key owner)
 pub const OWNER: Item<Addr> = Item::new("owner");
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct Identity {
-    pub address: Addr,
-    pub keys: Vec<Key>,
-    pub claims: Vec<Claim>,
-}
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Key {
