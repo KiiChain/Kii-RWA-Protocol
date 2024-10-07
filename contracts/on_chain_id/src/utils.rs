@@ -1,5 +1,4 @@
 use cosmwasm_std::{Addr, DepsMut, Binary, Deps};
-use secp256k1::PublicKey;
 use crate::error::ContractError;
 use crate::state::{KEYS, KeyType, OWNER, Claim, CLAIMS, ClaimTopic};
 use sha2::{Sha256, Digest};
