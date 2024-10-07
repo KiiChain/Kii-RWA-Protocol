@@ -402,7 +402,7 @@ mod test {
 
     use crate::contract::{execute, migrate, query_channel};
     use crate::msg::{ExecuteMsg, MigrateMsg, TransferMsg};
-    use cosmwasm_std::testing::{mock_env, mock_info};
+    use cosmwasm_std::testing::{message_info, mock_env};
     use cosmwasm_std::{coins, to_json_vec, Addr, IbcEndpoint, IbcMsg, IbcTimeout, Timestamp};
     use cw20::Cw20ReceiveMsg;
 
@@ -534,7 +534,7 @@ mod test {
             amount: Uint128::new(987654321),
             msg: to_json_binary(&transfer).unwrap(),
         });
-        let info = mock_info(cw20_addr, &[]);
+        let info = message_info(&Addr::unchecked(cw20_addr), &[]);
         let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(1, res.messages.len());
         let expected = Ics20Packet {
@@ -612,7 +612,7 @@ mod test {
             timeout: None,
             memo: None,
         });
-        let info = mock_info("local-sender", &coins(987654321, denom));
+        let info = message_info(&Addr::unchecked("local-sender"), &coins(987654321, denom));
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         // query channel state|_|
