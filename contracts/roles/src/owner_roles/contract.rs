@@ -392,14 +392,14 @@ mod tests {
 
     use super::*;
 
-    use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
+    use cosmwasm_std::testing::{message_info, mock_dependencies, mock_env};
     use cosmwasm_std::{attr, from_json, Addr, Uint128};
 
-    /// Test proper contract initialization
+    /// Test proper contract initialization1
     #[test]
     fn proper_initialization() {
         let mut deps = mock_dependencies();
-        let info = mock_info("creator", &[]);
+        let info = message_info(&Addr::unchecked("creator"), &[]);
         let msg = InstantiateMsg {
             owner: Addr::unchecked("owner"),
         };
@@ -417,7 +417,7 @@ mod tests {
     fn add_owner() {
         let mut deps = mock_dependencies();
         let owner = Addr::unchecked("owner");
-        let info = mock_info(owner.as_str(), &[]);
+        let info = message_info(&owner, &[]);
 
         // Instantiate the contract
         let msg = InstantiateMsg {
@@ -457,7 +457,7 @@ mod tests {
     fn remove_owner_role() {
         let mut deps = mock_dependencies();
         let owner = Addr::unchecked("owner");
-        let info = mock_info(owner.as_str(), &[]);
+        let info = message_info(&owner, &[]);
 
         // Instantiate the contract
         let msg = InstantiateMsg {
@@ -502,7 +502,7 @@ mod tests {
     fn unauthorized_add_owner_role() {
         let mut deps = mock_dependencies();
         let owner = Addr::unchecked("owner");
-        let info = mock_info(owner.as_str(), &[]);
+        let info = message_info(&owner, &[]);
 
         // Instantiate the contract
         let msg = InstantiateMsg {
@@ -511,7 +511,7 @@ mod tests {
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         // Try to add an owner with unauthorized sender
-        let unauthorized_info = mock_info("unauthorized", &[]);
+        let unauthorized_info = message_info(&Addr::unchecked("unauthorized"), &[]);
         let new_owner = Addr::unchecked("new_owner");
         let msg = ExecuteMsg::AddOwnerRole {
             role: OwnerRole::OwnerAdmin,
@@ -525,7 +525,7 @@ mod tests {
     fn unauthorized_remove_owner_role() {
         let mut deps = mock_dependencies();
         let owner = Addr::unchecked("owner");
-        let info = mock_info(owner.as_str(), &[]);
+        let info = message_info(&owner, &[]);
 
         // Instantiate the contract
         let msg = InstantiateMsg {
@@ -542,7 +542,7 @@ mod tests {
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         // Try to remove the owner with unauthorized sender
-        let unauthorized_info = mock_info("unauthorized", &[]);
+        let unauthorized_info = message_info(&Addr::unchecked("unauthorized"), &[]);
         let msg = ExecuteMsg::RemoveOwnerRole {
             role: OwnerRole::OwnerAdmin,
             owner: new_owner,
@@ -555,7 +555,7 @@ mod tests {
     fn multiple_owner_roles() {
         let mut deps = mock_dependencies();
         let owner = Addr::unchecked("owner");
-        let info = mock_info(owner.as_str(), &[]);
+        let info = message_info(&owner, &[]);
 
         // Instantiate the contract
         let msg = InstantiateMsg {
@@ -565,9 +565,11 @@ mod tests {
 
         // Add multiple roles to the same owner
         let new_owner = Addr::unchecked("new_owner");
-        let roles = [OwnerRole::OwnerAdmin,
+        let roles = [
+            OwnerRole::OwnerAdmin,
             OwnerRole::ComplianceManager,
-            OwnerRole::TokenInfoManager];
+            OwnerRole::TokenInfoManager,
+        ];
 
         for role in roles.iter() {
             let msg = ExecuteMsg::AddOwnerRole {
@@ -619,7 +621,7 @@ mod tests {
     fn test_set_compliance_registry() {
         let mut deps = mock_dependencies();
         let owner = Addr::unchecked("owner");
-        let info = mock_info(owner.as_str(), &[]);
+        let info = message_info(&owner, &[]);
 
         // Instantiate the contract
         let msg = InstantiateMsg {
@@ -640,7 +642,7 @@ mod tests {
         };
 
         // Test with authorized user
-        let info = mock_info(owner.as_str(), &[]);
+        let info = message_info(&owner, &[]);
         let res = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
         assert_eq!(
             res.attributes,
@@ -655,7 +657,7 @@ mod tests {
     fn test_set_claim_topics_registry() {
         let mut deps = mock_dependencies();
         let owner = Addr::unchecked("owner");
-        let info = mock_info(owner.as_str(), &[]);
+        let info = message_info(&owner, &[]);
 
         // Instantiate the contract
         let msg = InstantiateMsg {
@@ -692,7 +694,7 @@ mod tests {
     fn test_set_trusted_issuers_registry() {
         let mut deps = mock_dependencies();
         let owner = Addr::unchecked("owner");
-        let info = mock_info(owner.as_str(), &[]);
+        let info = message_info(&owner, &[]);
 
         // Instantiate the contract
         let msg = InstantiateMsg {
@@ -729,7 +731,7 @@ mod tests {
         let mut deps = mock_dependencies();
         let owner = Addr::unchecked("owner");
         let claim_manager = Addr::unchecked("claim_manager");
-        let info = mock_info(owner.as_str(), &[]);
+        let info = message_info(&owner, &[]);
 
         // Instantiate the contract
         let msg = InstantiateMsg {
@@ -762,7 +764,7 @@ mod tests {
         let msg = ExecuteMsg::AddClaimTopic { claim_topic };
 
         // Test with authorized user
-        let info = mock_info(claim_manager.as_str(), &[]);
+        let info = message_info(&claim_manager, &[]);
         let res = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
 
         // Check that the response contains the correct attributes
@@ -780,7 +782,7 @@ mod tests {
         let mut deps = mock_dependencies();
         let owner = Addr::unchecked("owner");
         let claim_manager = Addr::unchecked("claim_manager");
-        let info = mock_info(owner.as_str(), &[]);
+        let info = message_info(&owner, &[]);
 
         // Instantiate the contract
         let msg = InstantiateMsg {
@@ -814,7 +816,7 @@ mod tests {
         let msg = ExecuteMsg::RemoveClaimTopic { claim_topic };
 
         // Test with authorized user
-        let info = mock_info(claim_manager.as_str(), &[]);
+        let info = message_info(&claim_manager, &[]);
         let res = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
 
         // Check that the response contains the correct attributes
@@ -831,7 +833,7 @@ mod tests {
         let mut deps = mock_dependencies();
         let owner = Addr::unchecked("owner");
         let issuer_manager = Addr::unchecked("issuer_manager");
-        let info = mock_info(owner.as_str(), &[]);
+        let info = message_info(&owner, &[]);
 
         // Instantiate the contract
         let msg = InstantiateMsg {
@@ -869,7 +871,7 @@ mod tests {
         };
 
         // Test with authorized user
-        let info = mock_info(issuer_manager.as_str(), &[]);
+        let info = message_info(&issuer_manager, &[]);
         let res = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
 
         // Check that the response contains the correct attributes
@@ -888,7 +890,7 @@ mod tests {
         let mut deps = mock_dependencies();
         let owner = Addr::unchecked("owner");
         let issuer_manager = Addr::unchecked("issuer_manager");
-        let info = mock_info(owner.as_str(), &[]);
+        let info = message_info(&owner, &[]);
 
         // Instantiate the contract
         let msg = InstantiateMsg {
@@ -924,7 +926,7 @@ mod tests {
         };
 
         // Test with authorized user
-        let info = mock_info(issuer_manager.as_str(), &[]);
+        let info = message_info(&issuer_manager, &[]);
         let res = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
 
         // Check that the response contains the correct attributes
@@ -942,7 +944,7 @@ mod tests {
         let mut deps = mock_dependencies();
         let owner = Addr::unchecked("owner");
         let issuer_manager = Addr::unchecked("issuer_manager");
-        let info = mock_info(owner.as_str(), &[]);
+        let info = message_info(&owner, &[]);
 
         // Instantiate the contract
         let msg = InstantiateMsg {
@@ -980,7 +982,7 @@ mod tests {
         };
 
         // Test with authorized user
-        let info = mock_info(issuer_manager.as_str(), &[]);
+        let info = message_info(&issuer_manager, &[]);
         let res = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
 
         // Check that the response contains the correct attributes

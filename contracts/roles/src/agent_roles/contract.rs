@@ -356,13 +356,13 @@ mod tests {
     use crate::agent_roles::msg::{AgentRole, IsAgentResponse};
 
     use super::*;
-    use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
+    use cosmwasm_std::testing::{message_info, mock_dependencies, mock_env};
     use cosmwasm_std::{attr, from_json, Addr, Uint128};
 
     #[test]
     fn proper_initialization() {
         let mut deps = mock_dependencies();
-        let info = mock_info("creator", &[]);
+        let info = message_info(&Addr::unchecked("creator"), &[]);
         let msg = InstantiateMsg {
             owner: Addr::unchecked("owner"),
         };
@@ -378,7 +378,7 @@ mod tests {
     fn add_agent_role() {
         let mut deps = mock_dependencies();
         let owner = Addr::unchecked("owner");
-        let info = mock_info(owner.as_str(), &[]);
+        let info = message_info(&owner, &[]);
 
         let msg = InstantiateMsg {
             owner: owner.clone(),
@@ -414,7 +414,7 @@ mod tests {
     fn remove_agent_role() {
         let mut deps = mock_dependencies();
         let owner = Addr::unchecked("owner");
-        let info = mock_info(owner.as_str(), &[]);
+        let info = message_info(&owner, &[]);
 
         let msg = InstantiateMsg {
             owner: owner.clone(),
@@ -456,12 +456,12 @@ mod tests {
     fn unauthorized_add_agent_role() {
         let mut deps = mock_dependencies();
         let owner = Addr::unchecked("owner");
-        let info = mock_info(owner.as_str(), &[]);
+        let info = message_info(&owner, &[]);
 
         let msg = InstantiateMsg { owner };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let unauthorized_info = mock_info("unauthorized", &[]);
+        let unauthorized_info = message_info(&Addr::unchecked("unauthorized"), &[]);
         let agent = Addr::unchecked("agent");
         let msg = ExecuteMsg::AddAgentRole {
             role: AgentRole::TransferManager,
@@ -475,12 +475,12 @@ mod tests {
     fn unauthorized_remove_agent_role() {
         let mut deps = mock_dependencies();
         let owner = Addr::unchecked("owner");
-        let info = mock_info(owner.as_str(), &[]);
+        let info = message_info(&owner, &[]);
 
         let msg = InstantiateMsg { owner };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let unauthorized_info = mock_info("unauthorized", &[]);
+        let unauthorized_info = message_info(&Addr::unchecked("unauthorized"), &[]);
         let agent = Addr::unchecked("agent");
         let msg = ExecuteMsg::RemoveAgentRole {
             role: AgentRole::RecoveryAgents,
@@ -494,7 +494,7 @@ mod tests {
     fn multiple_agent_roles() {
         let mut deps = mock_dependencies();
         let owner = Addr::unchecked("owner");
-        let info = mock_info(owner.as_str(), &[]);
+        let info = message_info(&owner, &[]);
 
         // Instantiate the contract
         let msg = InstantiateMsg {
@@ -570,7 +570,7 @@ mod tests {
     fn test_set_token_registry() {
         let mut deps = mock_dependencies();
         let owner = Addr::unchecked("owner");
-        let info = mock_info(owner.as_str(), &[]);
+        let info = message_info(&owner, &[]);
 
         // Instantiate the contract
         let msg = InstantiateMsg {
@@ -584,7 +584,7 @@ mod tests {
         };
 
         // Test with authorized user
-        let info = mock_info(owner.as_str(), &[]);
+        let info = message_info(&owner, &[]);
         let res = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
         assert_eq!(
             res.attributes,
@@ -599,7 +599,7 @@ mod tests {
     fn test_burn() {
         let mut deps = mock_dependencies();
         let owner = Addr::unchecked("owner");
-        let info = mock_info(owner.as_str(), &[]);
+        let info = message_info(&owner, &[]);
 
         // Instantiate the contract
         let msg = InstantiateMsg {
@@ -609,7 +609,7 @@ mod tests {
 
         // set token registry
         let new_registry = Addr::unchecked("new_token_registry");
-        let info = mock_info(owner.as_str(), &[]);
+        let info = message_info(&owner, &[]);
         let _ = execute(
             deps.as_mut(),
             mock_env(),
@@ -636,7 +636,7 @@ mod tests {
         let burn_msg = ExecuteMsg::Burn {
             amount: Uint128::new(100),
         };
-        let burn_info = mock_info(supply_modifier.as_str(), &[]);
+        let burn_info = message_info(&supply_modifier, &[]);
         let res = execute(deps.as_mut(), mock_env(), burn_info, burn_msg).unwrap();
         assert_eq!(
             res.attributes,
@@ -648,7 +648,7 @@ mod tests {
         );
 
         // Test unauthorized burn
-        let unauthorized_info = mock_info("unauthorized", &[]);
+        let unauthorized_info = message_info(&Addr::unchecked("unauthorized"), &[]);
         let unauthorized_burn_msg = ExecuteMsg::Burn {
             amount: Uint128::new(50),
         };
@@ -667,7 +667,7 @@ mod tests {
         let mut deps = mock_dependencies();
         let owner = Addr::unchecked("owner");
 
-        let info = mock_info(owner.as_str(), &[]);
+        let info = message_info(&owner, &[]);
 
         // Instantiate the contract
         let msg = InstantiateMsg {
@@ -677,7 +677,7 @@ mod tests {
 
         // set token registry
         let new_registry = Addr::unchecked("new_token_registry");
-        let info = mock_info(owner.as_str(), &[]);
+        let info = message_info(&owner, &[]);
         let _ = execute(
             deps.as_mut(),
             mock_env(),
@@ -706,7 +706,7 @@ mod tests {
             recipient: recipient.to_string(),
             amount: Uint128::new(100),
         };
-        let mint_info = mock_info(supply_modifier.as_str(), &[]);
+        let mint_info = message_info(&supply_modifier, &[]);
         let res = execute(deps.as_mut(), mock_env(), mint_info, mint_msg).unwrap();
         assert_eq!(
             res.attributes,
@@ -718,7 +718,7 @@ mod tests {
         );
 
         // Test unauthorized mint
-        let unauthorized_info = mock_info("unauthorized", &[]);
+        let unauthorized_info = message_info(&Addr::unchecked("unauthorized"), &[]);
         let unauthorized_mint_msg = ExecuteMsg::Mint {
             recipient: recipient.to_string(),
             amount: Uint128::new(50),
@@ -737,7 +737,7 @@ mod tests {
     fn test_transfer() {
         let mut deps = mock_dependencies();
         let owner = Addr::unchecked("owner");
-        let info = mock_info(owner.as_str(), &[]);
+        let info = message_info(&owner, &[]);
 
         // Instantiate the contract
         let msg = InstantiateMsg {
@@ -747,7 +747,7 @@ mod tests {
 
         // set token registry
         let new_registry = Addr::unchecked("new_token_registry");
-        let info = mock_info(owner.as_str(), &[]);
+        let info = message_info(&owner, &[]);
         let _ = execute(
             deps.as_mut(),
             mock_env(),
@@ -764,7 +764,7 @@ mod tests {
             recipient: recipient.to_string(),
             amount: Uint128::new(100),
         };
-        let transfer_info = mock_info(sender.as_str(), &[]);
+        let transfer_info = message_info(&sender, &[]);
         let res = execute(deps.as_mut(), mock_env(), transfer_info, transfer_msg).unwrap();
         assert_eq!(
             res.attributes,
@@ -780,7 +780,7 @@ mod tests {
     fn test_transfer_from() {
         let mut deps = mock_dependencies();
         let owner = Addr::unchecked("owner");
-        let info = mock_info(owner.as_str(), &[]);
+        let info = message_info(&owner, &[]);
 
         // Instantiate the contract
         let msg = InstantiateMsg {
@@ -790,7 +790,7 @@ mod tests {
 
         // set token registry
         let new_registry = Addr::unchecked("new_token_registry");
-        let info = mock_info(owner.as_str(), &[]);
+        let info = message_info(&owner, &[]);
         let _ = execute(
             deps.as_mut(),
             mock_env(),
@@ -821,7 +821,7 @@ mod tests {
             recipient: recipient.to_string(),
             amount: Uint128::new(100),
         };
-        let transfer_from_info = mock_info(transfer_manager.as_str(), &[]);
+        let transfer_from_info = message_info(&transfer_manager, &[]);
         let res = execute(
             deps.as_mut(),
             mock_env(),
@@ -840,7 +840,7 @@ mod tests {
         );
 
         // Test unauthorized transfer_from
-        let unauthorized_info = mock_info("unauthorized", &[]);
+        let unauthorized_info = message_info(&Addr::unchecked("unauthorized"), &[]);
         let unauthorized_transfer_from_msg = ExecuteMsg::TransferFrom {
             owner: owner.to_string(),
             recipient: recipient.to_string(),
