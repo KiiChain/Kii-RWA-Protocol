@@ -515,6 +515,7 @@ dependencies = [
  "semver",
  "serde",
  "thiserror",
+ "utils",
 ]
 
 [[package]]

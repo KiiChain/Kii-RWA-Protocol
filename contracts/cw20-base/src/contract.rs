@@ -2,7 +2,8 @@
 use cosmwasm_std::entry_point;
 use cosmwasm_std::Order::Ascending;
 use cosmwasm_std::{
-    to_json_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult, Uint128,
+    to_json_binary, Addr, Binary, Deps, DepsMut, Env, MessageInfo, QueryRequest, Response,
+    StdError, StdResult, Uint128, WasmQuery,
 };
 
 use cw2::{ensure_from_older_version, set_contract_version};
@@ -19,8 +20,8 @@ use crate::enumerable::{query_all_accounts, query_owner_allowances, query_spende
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
 use crate::state::{
-    MinterData, TokenInfo, ALLOWANCES, ALLOWANCES_SPENDER, BALANCES, LOGO, MARKETING_INFO,
-    TOKEN_INFO,
+    MinterData, TokenInfo, ALLOWANCES, ALLOWANCES_SPENDER, BALANCES, COMPLIANCE_ADDRESS, LOGO,
+    MARKETING_INFO, TOKEN_INFO,
 };
 
 // version info for migration info
@@ -183,6 +184,35 @@ pub fn validate_accounts(accounts: &[Cw20Coin]) -> Result<(), ContractError> {
     }
 }
 
+pub fn validate_compliance(
+    deps: Deps,
+    from: Option<Addr>,
+    to: Option<Addr>,
+    amount: Option<Uint128>,
+) -> Result<(), ContractError> {
+    use utils::QueryMsg;
+    // check compliance
+    let token_info = TOKEN_INFO.load(deps.storage)?;
+    let compliance_address = COMPLIANCE_ADDRESS.load(deps.storage)?;
+
+    let msg = QueryMsg::CheckTokenCompliance {
+        token_address: Addr::unchecked(token_info.name),
+        from,
+        to,
+        amount,
+    };
+
+    let query = QueryRequest::Wasm(WasmQuery::Smart {
+        contract_addr: compliance_address.to_string(),
+        msg: to_json_binary(&msg)?,
+    });
+    let is_compliant: bool = deps.querier.query(&query)?;
+    if !is_compliant {
+        return Err(ContractError::ComplianceCheckFailed);
+    }
+    Ok(())
+}
+
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn execute(
     deps: DepsMut,
@@ -244,6 +274,14 @@ pub fn execute_transfer(
 ) -> Result<Response, ContractError> {
     let rcpt_addr = deps.api.addr_validate(&recipient)?;
 
+    // add compliance check
+    validate_compliance(
+        deps.as_ref(),
+        Some(info.sender.clone()),
+        Some(rcpt_addr.clone()),
+        Some(amount),
+    )?;
+
     BALANCES.update(
         deps.storage,
         &info.sender,
@@ -271,6 +309,9 @@ pub fn execute_burn(
     info: MessageInfo,
     amount: Uint128,
 ) -> Result<Response, ContractError> {
+    // add compliance check
+    validate_compliance(deps.as_ref(), Some(info.sender.clone()), None, Some(amount))?;
+
     // lower balance
     BALANCES.update(
         deps.storage,
@@ -299,6 +340,15 @@ pub fn execute_mint(
     recipient: String,
     amount: Uint128,
 ) -> Result<Response, ContractError> {
+    let rcpt_addr = deps.api.addr_validate(&recipient)?;
+    // add compliance check
+    validate_compliance(
+        deps.as_ref(),
+        Some(info.sender.clone()),
+        Some(rcpt_addr.clone()),
+        Some(amount),
+    )?;
+
     let mut config = TOKEN_INFO
         .may_load(deps.storage)?
         .ok_or(ContractError::Unauthorized {})?;
@@ -346,6 +396,14 @@ pub fn execute_send(
     msg: Binary,
 ) -> Result<Response, ContractError> {
     let rcpt_addr = deps.api.addr_validate(&contract)?;
+
+    // add compliance check
+    validate_compliance(
+        deps.as_ref(),
+        Some(info.sender.clone()),
+        Some(rcpt_addr.clone()),
+        Some(amount),
+    )?;
 
     // move the tokens to the contract
     BALANCES.update(
