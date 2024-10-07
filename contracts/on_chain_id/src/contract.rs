@@ -326,4 +326,247 @@ mod tests {
             );
         assert!(res.is_err());
     }
+
+    #[test]
+    fn add_different_key_types() {
+        let mut app = App::default();
+        let owner = "owner";
+        let contract_addr = instantiate_contract(&mut app, owner);
+        let owner_addr = app.api().addr_make(owner);
+
+        let key_types = vec!["ExecutionKey", "ClaimSignerKey", "EncryptionKey"];
+
+        // Add keys one at a time
+        for key_type in &key_types {
+            let msg = ExecuteMsg::AddKey {
+                key_owner: owner_addr.to_string(),
+                key_type: key_type.to_string(),
+            };
+            app.execute_contract(owner_addr.clone(), contract_addr.clone(), &msg, &[])
+                .unwrap();
+
+            // Query and verify the added key
+            let res: Key = app
+                .wrap()
+                .query_wasm_smart(
+                    contract_addr.clone(),
+                    &QueryMsg::GetKey {
+                        key_owner: owner_addr.to_string(),
+                        key_type: key_type.to_string(),
+                    },
+                )
+                .unwrap();
+            assert_eq!(res.owner, owner_addr);
+            assert_eq!(res.key_type, KeyType::from_str(key_type).unwrap());
+        }
+
+        // Attempt to add a duplicate key
+        let msg = ExecuteMsg::AddKey {
+            key_owner: owner_addr.to_string(),
+            key_type: "ManagementKey".to_string(),
+        };
+        let err = app.execute_contract(owner_addr.clone(), contract_addr.clone(), &msg, &[])
+            .unwrap_err();
+        assert!(err.to_string().contains("Error"));
+    }
+
+
+    #[test]
+    fn add_and_query_claims() {
+        let mut app = App::default();
+        let owner = "owner";
+        let contract_addr = instantiate_contract(&mut app, owner);
+        let owner_addr = app.api().addr_make(owner);
+
+        // Generate a keypair for signing
+        let secp = Secp256k1::new();
+        let secret_key = SecretKey::new(&mut rand::thread_rng());
+        let public_key = PublicKey::from_secret_key(&secp, &secret_key);
+
+        // Add a claim signer key
+        let msg = ExecuteMsg::AddKey {
+            key_owner: owner_addr.to_string(),
+            key_type: "ClaimSignerKey".to_string(),
+        };
+        app.execute_contract(owner_addr.clone(), contract_addr.clone(), &msg, &[])
+            .unwrap();
+
+        let claim_topics = vec![ClaimTopic::BiometricTopic, ClaimTopic::ResidenceTopic, ClaimTopic::RegistryTopic];
+        let mut claim_ids = Vec::new();
+
+        // Add claims one at a time
+        for topic in &claim_topics {
+            let claim = Claim {
+                id: None,
+                topic: topic.clone(),
+                issuer: owner_addr.clone(),
+                signature: Binary::from(vec![]),
+                data: Binary::from(vec![1, 2, 3]),
+                uri: "https://example.com".to_string(),
+            };
+
+            let message_hash = hash_claim_without_signature(&claim);
+            let message = Message::from_slice(&message_hash).unwrap();
+            let signature = secp.sign_ecdsa(&message, &secret_key);
+
+            let signed_claim = Claim {
+                signature: Binary::from(signature.serialize_compact()),
+                ..claim
+            };
+
+            let msg = ExecuteMsg::AddClaim {
+                claim: signed_claim,
+                issuer_signature: Binary::from(public_key.serialize()),
+            };
+            let res = app.execute_contract(owner_addr.clone(), contract_addr.clone(), &msg, &[])
+                .unwrap();
+            
+            let claim_id = res.events
+                .iter()
+                .find(|e| e.ty == "wasm")
+                .and_then(|e| e.attributes.iter().find(|attr| attr.key == "claim_id"))
+                .map(|attr| attr.value.clone())
+                .expect("Claim ID not found in response");
+            
+            claim_ids.push(claim_id);
+        }
+
+        // Query and verify each claim
+        for (i, topic) in claim_topics.iter().enumerate() {
+            let res: Claim = app
+                .wrap()
+                .query_wasm_smart(
+                    contract_addr.clone(),
+                    &QueryMsg::GetClaim { claim_id: claim_ids[i].clone() },
+                )
+                .unwrap();
+            assert_eq!(res.topic, *topic);
+        }
+
+        // Test GetClaimIdsByTopic
+        for topic in &claim_topics {
+            let res: Vec<String> = app
+                .wrap()
+                .query_wasm_smart(
+                    contract_addr.clone(),
+                    &QueryMsg::GetClaimIdsByTopic { topic: topic.to_string() },
+                )
+                .unwrap();
+            assert_eq!(res.len(), 1);
+        }
+
+        // Test GetClaimsByIssuer
+        let res: Vec<Claim> = app
+            .wrap()
+            .query_wasm_smart(
+                contract_addr.clone(),
+                &QueryMsg::GetClaimsByIssuer { issuer: owner_addr.to_string() },
+            )
+            .unwrap();
+        assert_eq!(res.len(), claim_topics.len());
+        // Attempt to add a duplicate claim
+        let duplicate_claim = Claim {
+            id: Some(claim_ids[0].clone()),
+            topic: claim_topics[0].clone(),
+            issuer: owner_addr.clone(),
+            signature: Binary::from(vec![]),
+            data: Binary::from(vec![1, 2, 3]),
+            uri: "https://example.com".to_string(),
+        };
+        let message_hash = hash_claim_without_signature(&duplicate_claim);
+        let message = Message::from_slice(&message_hash).unwrap();
+        let signature = secp.sign_ecdsa(&message, &secret_key);
+        let signed_duplicate_claim = Claim {
+            signature: Binary::from(signature.serialize_compact()),
+            ..duplicate_claim
+        };
+        let msg = ExecuteMsg::AddClaim {
+            claim: signed_duplicate_claim,
+            issuer_signature: Binary::from(public_key.serialize()),
+        };
+        let err = app.execute_contract(owner_addr.clone(), contract_addr.clone(), &msg, &[])
+            .unwrap_err();
+        assert!(err.to_string().contains("Error"));
+    }
+
+    #[test]
+    fn add_key_to_different_wallet() {
+        let mut app = App::default();
+        let owner = "owner";
+        let contract_addr = instantiate_contract(&mut app, owner);
+        let owner_addr = app.api().addr_make(owner);
+
+        // Create a different wallet address
+        let different_wallet = "different_wallet";
+        let different_wallet_addr = app.api().addr_make(different_wallet);
+
+        // Add a key for the different wallet
+        let msg = ExecuteMsg::AddKey {
+            key_owner: different_wallet_addr.to_string(),
+            key_type: "ExecutionKey".to_string(),
+        };
+        app.execute_contract(owner_addr.clone(), contract_addr.clone(), &msg, &[])
+            .unwrap();
+
+        // Query the added key
+        let res: Key = app
+            .wrap()
+            .query_wasm_smart(
+                contract_addr.clone(),
+                &QueryMsg::GetKey {
+                    key_owner: different_wallet_addr.to_string(),
+                    key_type: "ExecutionKey".to_string(),
+                },
+            )
+            .unwrap();
+
+        // Verify the key details
+        assert_eq!(res.owner, different_wallet_addr);
+        assert_eq!(res.key_type, KeyType::ExecutionKey);
+
+        // Attempt to add another key with the different wallet (should fail)
+        let msg = ExecuteMsg::AddKey {
+            key_owner: owner_addr.to_string(),
+            key_type: "ManagementKey".to_string(),
+        };
+        let err = app.execute_contract(different_wallet_addr.clone(), contract_addr.clone(), &msg, &[])
+            .unwrap_err();
+        assert!(err.to_string().contains("Error"));
+
+        // The owner should still be able to add keys
+        let msg = ExecuteMsg::AddKey {
+            key_owner: owner_addr.to_string(),
+            key_type: "EncryptionKey".to_string(),
+        };
+        app.execute_contract(owner_addr.clone(), contract_addr.clone(), &msg, &[])
+            .unwrap();
+
+        // Verify both keys exist
+        let res: Key = app
+            .wrap()
+            .query_wasm_smart(
+                contract_addr.clone(),
+                &QueryMsg::GetKey {
+                    key_owner: different_wallet_addr.to_string(),
+                    key_type: "ExecutionKey".to_string(),
+                },
+            )
+            .unwrap();
+        assert_eq!(res.owner, different_wallet_addr);
+        assert_eq!(res.key_type, KeyType::ExecutionKey);
+
+        let res: Key = app
+            .wrap()
+            .query_wasm_smart(
+                contract_addr.clone(),
+                &QueryMsg::GetKey {
+                    key_owner: owner_addr.to_string(),
+                    key_type: "EncryptionKey".to_string(),
+                },
+            )
+            .unwrap();
+        assert_eq!(res.owner, owner_addr);
+        assert_eq!(res.key_type, KeyType::EncryptionKey);
+    }
+
 }

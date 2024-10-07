@@ -34,7 +34,6 @@ pub fn generate_claim_id(claim: &mut Claim) {
     
     hasher.update(claim.topic.to_string().as_bytes());
     hasher.update(&claim.issuer.as_bytes());
-    hasher.update(&claim.signature);
     hasher.update(&claim.data);
     hasher.update(&claim.uri.as_bytes());
     let id = hex::encode(hasher.finalize());
