@@ -3,8 +3,8 @@ use cosmwasm_std::entry_point;
 use cosmwasm_std::{Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
 // use cw2::set_contract_version;
 
-use crate::error::ContractError;
-use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
+use crate::identity::error::ContractError;
+use crate::identity::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 
 /*
 // version info for migration info
