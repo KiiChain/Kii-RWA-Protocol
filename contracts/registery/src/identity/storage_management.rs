@@ -1,6 +1,6 @@
-use crate::identity::storage::error::ContractError;
-use crate::identity::storage::state::IDENTITIES;
-use crate::identity::storage::utils::is_authorized;
+use crate::identity::error::ContractError;
+use crate::identity::state::IDENTITIES;
+use crate::identity::utils::is_authorized;
 use cosmwasm_std::{DepsMut, Env, MessageInfo, Response};
 
 pub fn add_identity(
@@ -15,7 +15,7 @@ pub fn add_identity(
     let identity_addr = deps.api.addr_validate(&identity_address)?;
 
     // Check if the sender is authorized
-    if !is_authorized(deps.as_ref(), &info.sender, &owner_addr)? {
+    if !is_authorized(deps.as_ref(), &info.sender, &identity_addr)? {
         return Err(ContractError::Unauthorized {});
     }
 
