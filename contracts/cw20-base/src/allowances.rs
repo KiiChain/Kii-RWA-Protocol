@@ -256,7 +256,7 @@ pub fn query_allowance(deps: Deps, owner: String, spender: String) -> StdResult<
 mod tests {
     use super::*;
 
-    use cosmwasm_std::testing::{message_info, mock_dependencies_with_balance, mock_env};
+    use cosmwasm_std::testing::{message_info, mock_dependencies_with_balance, mock_env, MockApi};
     use cosmwasm_std::{coins, CosmosMsg, SubMsg, Timestamp, WasmMsg};
     use cw20::{Cw20Coin, TokenInfoResponse};
 
@@ -286,7 +286,7 @@ mod tests {
                 marketing: None,
             },
             registeries: Registeries {
-                compliance_address: "compliance_addr".to_string(),
+                compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
             },
         };
         let info = message_info(&Addr::unchecked("creator"), &[]);

@@ -82,8 +82,10 @@ pub fn query_all_accounts(
 mod tests {
     use super::*;
 
-    use cosmwasm_std::testing::{message_info, mock_dependencies_with_balance, mock_env};
-    use cosmwasm_std::{coins, from_json, Addr, DepsMut, Uint128};
+    use cosmwasm_std::testing::{message_info, mock_dependencies_with_balance, mock_env, MockApi};
+    use cosmwasm_std::{
+        coins, from_json, to_json_binary, Addr, ContractResult, DepsMut, SystemResult, Uint128,
+    };
     use cw20::{Cw20Coin, Expiration, TokenInfoResponse};
 
     use crate::contract::{execute, instantiate, query, query_token_info};
@@ -104,7 +106,7 @@ mod tests {
                 marketing: None,
             },
             registeries: Registeries {
-                compliance_address: "compliance_addr".to_string(),
+                compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
             },
         };
         let info = message_info(&Addr::unchecked("creator"), &[]);
@@ -264,6 +266,7 @@ mod tests {
 
     #[test]
     fn query_all_accounts_works() {
+        use utils::QueryMsg::CheckTokenCompliance;
         let mut deps = mock_dependencies_with_balance(&coins(2, "token"));
 
         // insert order and lexicographical order are different
@@ -274,6 +277,22 @@ mod tests {
 
         let mut expected_order = [acct1.clone(), acct2.clone(), acct3.clone(), acct4.clone()];
         expected_order.sort();
+
+        // Mock the compliance query
+        deps.querier.update_wasm(|query| match query {
+            cosmwasm_std::WasmQuery::Smart { msg, .. } => {
+                let parsed: utils::QueryMsg = from_json(msg).unwrap();
+                match parsed {
+                    CheckTokenCompliance {
+                        token_address: _,
+                        from: _,
+                        to: _,
+                        amount: _,
+                    } => SystemResult::Ok(ContractResult::Ok(to_json_binary(&true).unwrap())),
+                }
+            }
+            _ => panic!("Unexpected query type"),
+        });
 
         do_instantiate(deps.as_mut(), &acct1, Uint128::new(12340000));
 
