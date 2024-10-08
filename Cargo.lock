@@ -877,6 +877,7 @@ dependencies = [
  "rand",
  "schemars",
  "secp256k1",
+ "semver",
  "serde",
  "serde_json",
  "sha2",
