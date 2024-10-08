@@ -1,4 +1,4 @@
-use cosmwasm_std::StdError;
+use cosmwasm_std::{StdError, Uint128};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -42,11 +42,11 @@ pub enum ContractError {
     #[error("Invalid claim ID: {claim_id}")]
     InvalidClaimId { claim_id: String },
 
-    #[error("Claim not found with ID: {claim_id}")]
-    ClaimNotFound { claim_id: String },
+    #[error("Claim not found with ID: {claim_topic}")]
+    ClaimNotFound { claim_topic: Uint128 },
 
-    #[error("Claim already exists with ID: {claim_id}")]
-    ClaimAlreadyExists { claim_id: String },
+    #[error("Claim already exists with ID: {claim_topic}")]
+    ClaimAlreadyExists { claim_topic: Uint128 },
 
     #[error("Identity not found for owner: {owner}")]
     IdentityNotFound { owner: String },

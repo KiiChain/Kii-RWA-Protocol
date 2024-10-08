@@ -9,10 +9,23 @@ pub struct InstantiateMsg {
 
 #[cw_serde]
 pub enum ExecuteMsg {
-    AddKey { key_owner: String, key_type: String },
-    RevokeKey { key_owner: String, key_type: String },
-    AddClaim { claim: Claim, public_key: Binary },
-    RemoveClaim { claim_id: Uint128 },
+    AddKey {
+        key_owner: String,
+        key_type: String,
+    },
+    RevokeKey {
+        key_owner: String,
+        key_type: String,
+    },
+    AddClaim {
+        claim: Claim,
+        public_key: Binary,
+        user_addr: Addr,
+    },
+    RemoveClaim {
+        claim_topic: Uint128,
+        user_addr: Addr,
+    },
 }
 
 #[cw_serde]

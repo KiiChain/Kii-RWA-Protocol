@@ -75,10 +75,15 @@ pub fn execute(
             key_owner,
             key_type,
         } => execute_remove_key(deps, info, key_owner, key_type),
-        ExecuteMsg::AddClaim { claim, public_key } => {
-            execute_add_claim(deps, info, claim, public_key)
-        }
-        ExecuteMsg::RemoveClaim { claim_id } => execute_remove_claim(deps, info, claim_id),
+        ExecuteMsg::AddClaim {
+            claim,
+            public_key,
+            user_addr,
+        } => execute_add_claim(deps, info, claim, public_key, user_addr),
+        ExecuteMsg::RemoveClaim {
+            claim_topic,
+            user_addr,
+        } => execute_remove_claim(deps, info, claim_topic, user_addr),
     }
 }
 
