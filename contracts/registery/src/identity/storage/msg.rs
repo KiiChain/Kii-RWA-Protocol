@@ -39,21 +39,13 @@ pub enum ExecuteMsg {
 #[derive(QueryResponses)]
 pub enum QueryMsg {
     #[returns(String)]
-    GetIdentity {
-        owner: String,
-    },
+    GetIdentity { owner: String },
     #[returns(String)]
-    GetCountry {
-        owner: String,
-    },
+    GetCountry { owner: String },
     #[returns(Vec<String>)]
-    GetIdentitiesByCountry {
-        country: String,
-    },
+    GetIdentitiesByCountry { country: String },
     #[returns(Vec<String>)]
-    GetAgents {
-        address: String,
-    },
+    GetAgents { address: String },
     #[returns(String)]
     GetOwner {},
 }

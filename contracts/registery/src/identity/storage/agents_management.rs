@@ -1,7 +1,7 @@
-use cosmwasm_std::{DepsMut, Env, MessageInfo, Response};
+use crate::identity::storage::error::ContractError;
 use crate::identity::storage::state::AGENTS;
 use crate::identity::storage::utils::is_authorized;
-use crate::identity::storage::error::ContractError;
+use cosmwasm_std::{DepsMut, Env, MessageInfo, Response};
 
 pub fn add_agent(
     deps: DepsMut,
@@ -19,7 +19,8 @@ pub fn add_agent(
     }
 
     // Load or initialize the agents list
-    let mut agents = AGENTS.may_load(deps.storage, owner_addr.clone())?
+    let mut agents = AGENTS
+        .may_load(deps.storage, owner_addr.clone())?
         .unwrap_or_default();
 
     // Check if the agent already exists
@@ -53,11 +54,12 @@ pub fn remove_agent(
     }
 
     // Load the agents list
-    let mut agents = AGENTS.may_load(deps.storage, owner_addr.clone())?
+    let mut agents = AGENTS
+        .may_load(deps.storage, owner_addr.clone())?
         .ok_or(ContractError::AgentNotFound {})?;
 
     // Remove the agent
-    agents.retain(|addr| addr != &agent_addr);
+    agents.retain(|addr| addr != agent_addr);
     AGENTS.save(deps.storage, owner_addr.clone(), &agents)?;
 
     Ok(Response::new()
@@ -82,7 +84,8 @@ pub fn update_agent(
     }
 
     // Load the agents list
-    let mut agents = AGENTS.may_load(deps.storage, owner_addr.clone())?
+    let mut agents = AGENTS
+        .may_load(deps.storage, owner_addr.clone())?
         .ok_or(ContractError::AgentNotFound {})?;
 
     // Check if the new agent already exists
@@ -92,7 +95,7 @@ pub fn update_agent(
 
     // Replace the old agent with the new one
     // Note: This assumes that the sender's address is the one being updated
-    if let Some(pos) = agents.iter().position(|addr| addr == &info.sender) {
+    if let Some(pos) = agents.iter().position(|addr| addr == info.sender) {
         agents[pos] = new_agent_addr.clone();
         AGENTS.save(deps.storage, owner_addr.clone(), &agents)?;
     } else {

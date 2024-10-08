@@ -1,7 +1,7 @@
-use cosmwasm_std::{DepsMut, Env, MessageInfo, Response};
-use crate::identity::storage::state::IDENTITIES;
 use crate::identity::storage::error::ContractError;
+use crate::identity::storage::state::IDENTITIES;
 use crate::identity::storage::utils::is_authorized;
+use cosmwasm_std::{DepsMut, Env, MessageInfo, Response};
 
 pub fn add_identity(
     deps: DepsMut,
@@ -25,7 +25,11 @@ pub fn add_identity(
     }
 
     // Store the new identity
-    IDENTITIES.save(deps.storage, owner_addr.clone(), &(identity_addr, country.clone()))?;
+    IDENTITIES.save(
+        deps.storage,
+        owner_addr.clone(),
+        &(identity_addr, country.clone()),
+    )?;
 
     Ok(Response::new()
         .add_attribute("action", "add_identity")
@@ -79,7 +83,11 @@ pub fn update_identity(
     let (_, country) = IDENTITIES.load(deps.storage, owner_addr.clone())?;
 
     // Update the identity address
-    IDENTITIES.save(deps.storage, owner_addr.clone(), &(new_identity_addr.clone(), country))?;
+    IDENTITIES.save(
+        deps.storage,
+        owner_addr.clone(),
+        &(new_identity_addr.clone(), country),
+    )?;
 
     Ok(Response::new()
         .add_attribute("action", "update_identity")
@@ -105,7 +113,11 @@ pub fn update_country(
     let (identity_addr, _) = IDENTITIES.load(deps.storage, owner_addr.clone())?;
 
     // Update the country
-    IDENTITIES.save(deps.storage, owner_addr.clone(), &(identity_addr, new_country.clone()))?;
+    IDENTITIES.save(
+        deps.storage,
+        owner_addr.clone(),
+        &(identity_addr, new_country.clone()),
+    )?;
 
     Ok(Response::new()
         .add_attribute("action", "update_country")

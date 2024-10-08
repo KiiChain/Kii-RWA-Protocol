@@ -1,9 +1,9 @@
+use crate::identity::storage::state::{AGENTS, OWNER};
 use cosmwasm_std::{Addr, Deps, StdResult};
-use crate::identity::storage::state::{OWNER, AGENTS};
 
 pub fn is_authorized(deps: Deps, sender: &Addr, owner: &Addr) -> StdResult<bool> {
     let contract_owner = OWNER.load(deps.storage)?;
-    if sender == &contract_owner {
+    if sender == contract_owner {
         return Ok(true);
     }
 

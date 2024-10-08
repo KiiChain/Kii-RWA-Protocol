@@ -1,13 +1,15 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
-use cosmwasm_std::{Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult, to_json_binary};
+use cosmwasm_std::{to_json_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
 
+use crate::identity::storage::agents_management::{add_agent, remove_agent, update_agent};
 use crate::identity::storage::error::ContractError;
 use crate::identity::storage::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
-use crate::identity::storage::state::{OWNER, IDENTITIES, AGENTS};
-use crate::identity::storage::storage_management::{add_identity, remove_identity, update_identity, update_country};
-use crate::identity::storage::agents_management::{add_agent, remove_agent, update_agent};
+use crate::identity::storage::state::{AGENTS, IDENTITIES, OWNER};
+use crate::identity::storage::storage_management::{
+    add_identity, remove_identity, update_country, update_identity,
+};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:identity-storage";
@@ -21,7 +23,7 @@ pub fn instantiate(
     _msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
-    
+
     // Set the contract owner
     OWNER.save(deps.storage, &info.sender)?;
 
@@ -38,27 +40,31 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
     match msg {
-        ExecuteMsg::AddIdentity { owner, identity_address, country } => {
-            add_identity(deps, env, info, owner, identity_address, country)
-        },
-        ExecuteMsg::RemoveIdentity { owner } => {
-            remove_identity(deps, env, info, owner)
-        },
-        ExecuteMsg::UpdateIdentity { owner, new_identity_address } => {
-            update_identity(deps, env, info, owner, new_identity_address)
-        },
+        ExecuteMsg::AddIdentity {
+            owner,
+            identity_address,
+            country,
+        } => add_identity(deps, env, info, owner, identity_address, country),
+        ExecuteMsg::RemoveIdentity { owner } => remove_identity(deps, env, info, owner),
+        ExecuteMsg::UpdateIdentity {
+            owner,
+            new_identity_address,
+        } => update_identity(deps, env, info, owner, new_identity_address),
         ExecuteMsg::UpdateCountry { owner, new_country } => {
             update_country(deps, env, info, owner, new_country)
-        },
-        ExecuteMsg::AddAgent { owner, agent_address } => {
-            add_agent(deps, env, info, owner, agent_address)
-        },
-        ExecuteMsg::RemoveAgent { owner, agent_address } => {
-            remove_agent(deps, env, info, owner, agent_address)
-        },
-        ExecuteMsg::UpdateAgent { owner, new_agent_address } => {
-            update_agent(deps, env, info, owner, new_agent_address)
-        },
+        }
+        ExecuteMsg::AddAgent {
+            owner,
+            agent_address,
+        } => add_agent(deps, env, info, owner, agent_address),
+        ExecuteMsg::RemoveAgent {
+            owner,
+            agent_address,
+        } => remove_agent(deps, env, info, owner, agent_address),
+        ExecuteMsg::UpdateAgent {
+            owner,
+            new_agent_address,
+        } => update_agent(deps, env, info, owner, new_agent_address),
     }
 }
 
@@ -67,7 +73,9 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::GetIdentity { owner } => to_json_binary(&query_identity(deps, owner)?),
         QueryMsg::GetCountry { owner } => to_json_binary(&query_country(deps, owner)?),
-        QueryMsg::GetIdentitiesByCountry { country } => to_json_binary(&query_identities_by_country(deps, country)?),
+        QueryMsg::GetIdentitiesByCountry { country } => {
+            to_json_binary(&query_identities_by_country(deps, country)?)
+        }
         QueryMsg::GetAgents { address } => to_json_binary(&query_agents(deps, address)?),
         QueryMsg::GetOwner {} => to_json_binary(&query_owner(deps)?),
     }
@@ -111,8 +119,7 @@ fn query_owner(deps: Deps) -> StdResult<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cosmwasm_std::testing::{mock_env, mock_info};
-    use cosmwasm_std::{from_json, Addr};
+    use cosmwasm_std::Addr;
     use cw_multi_test::{App, ContractWrapper, Executor};
 
     fn instantiate_contract(app: &mut App, owner: Addr) -> Addr {
@@ -434,9 +441,6 @@ mod tests {
                 },
             )
             .unwrap();
-        assert_eq!(
-            vec![alice.to_string(), bob.to_string()],
-            res
-        );
+        assert_eq!(vec![alice.to_string(), bob.to_string()], res);
     }
 }
