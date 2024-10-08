@@ -1,7 +1,7 @@
+pub mod claim_management;
 pub mod contract;
 mod error;
-pub mod helpers;
+pub mod key_management;
 pub mod msg;
 pub mod state;
-
-pub use crate::error::ContractError;
+pub mod utils;
