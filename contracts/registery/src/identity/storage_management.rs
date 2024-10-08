@@ -15,7 +15,7 @@ pub fn add_identity(
     let identity_addr = deps.api.addr_validate(&identity_address)?;
 
     // Check if the sender is authorized
-    if !is_authorized(deps.as_ref(), &info.sender)? {
+    if !is_authorized(deps.as_ref(), &info.sender, &identity_addr)? {
         return Err(ContractError::Unauthorized {});
     }
 
@@ -47,7 +47,7 @@ pub fn remove_identity(
     let owner_addr = deps.api.addr_validate(&owner)?;
 
     // Check if the sender is authorized
-    if !is_authorized(deps.as_ref(), &info.sender)? {
+    if !is_authorized(deps.as_ref(), &info.sender, &owner_addr)? {
         return Err(ContractError::Unauthorized {});
     }
 
@@ -75,7 +75,7 @@ pub fn update_identity(
     let new_identity_addr = deps.api.addr_validate(&new_identity_address)?;
 
     // Check if the sender is authorized
-    if !is_authorized(deps.as_ref(), &info.sender)? {
+    if !is_authorized(deps.as_ref(), &info.sender, &owner_addr)? {
         return Err(ContractError::Unauthorized {});
     }
 
@@ -105,7 +105,7 @@ pub fn update_country(
     let owner_addr = deps.api.addr_validate(&owner)?;
 
     // Check if the sender is authorized
-    if !is_authorized(deps.as_ref(), &info.sender)? {
+    if !is_authorized(deps.as_ref(), &info.sender, &owner_addr)? {
         return Err(ContractError::Unauthorized {});
     }
 
