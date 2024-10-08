@@ -1,6 +1,6 @@
 pub mod contract;
-mod error;
+pub mod error;
 pub mod msg;
 pub mod state;
-
-pub mod storage;
+pub mod storage_management;
+pub mod utils;

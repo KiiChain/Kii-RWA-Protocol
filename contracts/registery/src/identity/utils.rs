@@ -1,4 +1,4 @@
-use crate::identity::storage::state::OWNER;
+use crate::identity::state::OWNER;
 use cosmwasm_std::{Addr, Deps, StdResult};
 
 pub fn is_authorized(deps: Deps, sender: &Addr) -> StdResult<bool> {

@@ -1,6 +1,6 @@
-use crate::identity::storage::error::ContractError;
-use crate::identity::storage::state::IDENTITIES;
-use crate::identity::storage::utils::is_authorized;
+use crate::identity::error::ContractError;
+use crate::identity::state::IDENTITIES;
+use crate::identity::utils::is_authorized;
 use cosmwasm_std::{DepsMut, Env, MessageInfo, Response};
 
 pub fn add_identity(

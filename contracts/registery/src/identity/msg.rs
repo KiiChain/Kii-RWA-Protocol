@@ -4,8 +4,34 @@ use cosmwasm_schema::{cw_serde, QueryResponses};
 pub struct InstantiateMsg {}
 
 #[cw_serde]
-pub enum ExecuteMsg {}
+pub enum ExecuteMsg {
+    AddIdentity {
+        owner: String,
+        identity_address: String,
+        country: String,
+    },
+    RemoveIdentity {
+        owner: String,
+    },
+    UpdateIdentity {
+        owner: String,
+        new_identity_address: String,
+    },
+    UpdateCountry {
+        owner: String,
+        new_country: String,
+    },
+}
 
 #[cw_serde]
 #[derive(QueryResponses)]
-pub enum QueryMsg {}
+pub enum QueryMsg {
+    #[returns(String)]
+    GetIdentity { owner: String },
+    #[returns(String)]
+    GetCountry { owner: String },
+    #[returns(Vec<String>)]
+    GetIdentitiesByCountry { country: String },
+    #[returns(String)]
+    GetOwner {},
+}

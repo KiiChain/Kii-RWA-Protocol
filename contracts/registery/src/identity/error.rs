@@ -8,6 +8,12 @@ pub enum ContractError {
 
     #[error("Unauthorized")]
     Unauthorized {},
+
+    #[error("Identity already exists")]
+    IdentityAlreadyExists {},
+
+    #[error("Identity not found")]
+    IdentityNotFound {},
     // Add any other custom errors you like here.
     // Look at https://docs.rs/thiserror/1.0.21/thiserror/ for details.
 }
