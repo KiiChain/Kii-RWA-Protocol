@@ -3,10 +3,9 @@ use cosmwasm_std::entry_point;
 use cosmwasm_std::{to_json_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
 
-use crate::identity::storage::agents_management::{add_agent, remove_agent, update_agent};
 use crate::identity::storage::error::ContractError;
 use crate::identity::storage::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
-use crate::identity::storage::state::{AGENTS, IDENTITIES, OWNER};
+use crate::identity::storage::state::{IDENTITIES, OWNER};
 use crate::identity::storage::storage_management::{
     add_identity, remove_identity, update_country, update_identity,
 };
@@ -53,18 +52,6 @@ pub fn execute(
         ExecuteMsg::UpdateCountry { owner, new_country } => {
             update_country(deps, env, info, owner, new_country)
         }
-        ExecuteMsg::AddAgent {
-            owner,
-            agent_address,
-        } => add_agent(deps, env, info, owner, agent_address),
-        ExecuteMsg::RemoveAgent {
-            owner,
-            agent_address,
-        } => remove_agent(deps, env, info, owner, agent_address),
-        ExecuteMsg::UpdateAgent {
-            owner,
-            new_agent_address,
-        } => update_agent(deps, env, info, owner, new_agent_address),
     }
 }
 
@@ -76,7 +63,6 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::GetIdentitiesByCountry { country } => {
             to_json_binary(&query_identities_by_country(deps, country)?)
         }
-        QueryMsg::GetAgents { address } => to_json_binary(&query_agents(deps, address)?),
         QueryMsg::GetOwner {} => to_json_binary(&query_owner(deps)?),
     }
 }
@@ -103,12 +89,6 @@ fn query_identities_by_country(deps: Deps, country: String) -> StdResult<Vec<Str
         .map(|r| r.map(|(owner, _)| owner.to_string()))
         .collect();
     identities
-}
-
-fn query_agents(deps: Deps, address: String) -> StdResult<Vec<String>> {
-    let agents = AGENTS.load(deps.storage, deps.api.addr_validate(&address)?)?;
-    let agents_as_strings = agents.into_iter().map(|addr| addr.to_string()).collect();
-    Ok(agents_as_strings)
 }
 
 fn query_owner(deps: Deps) -> StdResult<String> {
@@ -290,110 +270,6 @@ mod tests {
             )
             .unwrap();
         assert_eq!(None, res);
-    }
-
-    #[test]
-    fn add_and_query_agents() {
-        let mut app = App::default();
-        let owner = app.api().addr_make("owner");
-        let contract_addr = instantiate_contract(&mut app, owner.clone());
-
-        let dave = app.api().addr_make("dave");
-        let dave_identity = app.api().addr_make("dave_identity");
-        let agent1 = app.api().addr_make("agent1");
-
-        // Add identity
-        let msg = ExecuteMsg::AddIdentity {
-            owner: dave.to_string(),
-            identity_address: dave_identity.to_string(),
-            country: "Agentland".to_string(),
-        };
-        app.execute_contract(owner.clone(), contract_addr.clone(), &msg, &[])
-            .unwrap();
-
-        // Add agent
-        let msg = ExecuteMsg::AddAgent {
-            owner: dave.to_string(),
-            agent_address: agent1.to_string(),
-        };
-        app.execute_contract(owner.clone(), contract_addr.clone(), &msg, &[])
-            .unwrap();
-
-        // Query agents
-        let res: Vec<String> = app
-            .wrap()
-            .query_wasm_smart(
-                contract_addr,
-                &QueryMsg::GetAgents {
-                    address: dave.to_string(),
-                },
-            )
-            .unwrap();
-        assert_eq!(vec![agent1.to_string()], res);
-    }
-
-    #[test]
-    fn remove_and_update_agent() {
-        let mut app = App::default();
-        let owner = app.api().addr_make("owner");
-        let contract_addr = instantiate_contract(&mut app, owner.clone());
-
-        let eve = app.api().addr_make("eve");
-        let eve_identity = app.api().addr_make("eve_identity");
-        let agent1 = app.api().addr_make("agent1");
-        let agent2 = app.api().addr_make("agent2");
-        let new_agent2 = app.api().addr_make("new_agent2");
-
-        // Add identity
-        let msg = ExecuteMsg::AddIdentity {
-            owner: eve.to_string(),
-            identity_address: eve_identity.to_string(),
-            country: "Agentland".to_string(),
-        };
-        app.execute_contract(owner.clone(), contract_addr.clone(), &msg, &[])
-            .unwrap();
-
-        // Add agents
-        let msg = ExecuteMsg::AddAgent {
-            owner: eve.to_string(),
-            agent_address: agent1.to_string(),
-        };
-        app.execute_contract(owner.clone(), contract_addr.clone(), &msg, &[])
-            .unwrap();
-        let msg = ExecuteMsg::AddAgent {
-            owner: eve.to_string(),
-            agent_address: agent2.to_string(),
-        };
-        app.execute_contract(owner.clone(), contract_addr.clone(), &msg, &[])
-            .unwrap();
-
-        // Remove agent
-        let msg = ExecuteMsg::RemoveAgent {
-            owner: eve.to_string(),
-            agent_address: agent1.to_string(),
-        };
-        app.execute_contract(owner.clone(), contract_addr.clone(), &msg, &[])
-            .unwrap();
-
-        // Update agent
-        let msg = ExecuteMsg::UpdateAgent {
-            owner: eve.to_string(),
-            new_agent_address: new_agent2.to_string(),
-        };
-        app.execute_contract(agent2.clone(), contract_addr.clone(), &msg, &[])
-            .unwrap();
-
-        // Query updated agents
-        let res: Vec<String> = app
-            .wrap()
-            .query_wasm_smart(
-                contract_addr,
-                &QueryMsg::GetAgents {
-                    address: eve.to_string(),
-                },
-            )
-            .unwrap();
-        assert_eq!(vec![new_agent2.to_string()], res);
     }
 
     #[test]

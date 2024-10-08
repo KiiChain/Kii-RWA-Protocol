@@ -21,18 +21,6 @@ pub enum ExecuteMsg {
         owner: String,
         new_country: String,
     },
-    AddAgent {
-        owner: String,
-        agent_address: String,
-    },
-    RemoveAgent {
-        owner: String,
-        agent_address: String,
-    },
-    UpdateAgent {
-        owner: String,
-        new_agent_address: String,
-    },
 }
 
 #[cw_serde]
@@ -44,8 +32,6 @@ pub enum QueryMsg {
     GetCountry { owner: String },
     #[returns(Vec<String>)]
     GetIdentitiesByCountry { country: String },
-    #[returns(Vec<String>)]
-    GetAgents { address: String },
     #[returns(String)]
     GetOwner {},
 }

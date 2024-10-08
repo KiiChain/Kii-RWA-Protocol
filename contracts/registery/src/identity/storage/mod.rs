@@ -1,4 +1,3 @@
-pub mod agents_management;
 pub mod contract;
 pub mod error;
 pub mod msg;
