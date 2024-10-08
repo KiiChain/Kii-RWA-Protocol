@@ -34,3 +34,5 @@ pub const ALLOWANCES: Map<(&Addr, &Addr), AllowanceResponse> = Map::new("allowan
 // TODO: After https://github.com/CosmWasm/cw-plus/issues/670 is implemented, replace this with a `MultiIndex` over `ALLOWANCES`
 pub const ALLOWANCES_SPENDER: Map<(&Addr, &Addr), AllowanceResponse> =
     Map::new("allowance_spender");
+
+pub const COMPLIANCE_ADDRESS: Item<Addr> = Item::new("compliance_address");

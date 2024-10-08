@@ -515,6 +515,7 @@ dependencies = [
  "semver",
  "serde",
  "thiserror",
+ "utils",
 ]
 
 [[package]]
@@ -876,6 +877,7 @@ dependencies = [
  "rand",
  "schemars",
  "secp256k1",
+ "semver",
  "serde",
  "serde_json",
  "sha2",

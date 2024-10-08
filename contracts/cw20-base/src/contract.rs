@@ -2,7 +2,8 @@
 use cosmwasm_std::entry_point;
 use cosmwasm_std::Order::Ascending;
 use cosmwasm_std::{
-    to_json_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult, Uint128,
+    to_json_binary, Addr, Binary, Deps, DepsMut, Env, MessageInfo, QueryRequest, Response,
+    StdError, StdResult, Uint128, WasmQuery,
 };
 
 use cw2::{ensure_from_older_version, set_contract_version};
@@ -19,8 +20,8 @@ use crate::enumerable::{query_all_accounts, query_owner_allowances, query_spende
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
 use crate::state::{
-    MinterData, TokenInfo, ALLOWANCES, ALLOWANCES_SPENDER, BALANCES, LOGO, MARKETING_INFO,
-    TOKEN_INFO,
+    MinterData, TokenInfo, ALLOWANCES, ALLOWANCES_SPENDER, BALANCES, COMPLIANCE_ADDRESS, LOGO,
+    MARKETING_INFO, TOKEN_INFO,
 };
 
 // version info for migration info
@@ -101,7 +102,7 @@ pub fn instantiate(
     // check valid token info
     msg.validate()?;
     // create initial accounts
-    let total_supply = create_accounts(&mut deps, &msg.initial_balances)?;
+    let total_supply = create_accounts(&mut deps, &msg.token_info.initial_balances)?;
 
     if let Some(limit) = msg.get_cap() {
         if total_supply > limit {
@@ -109,7 +110,7 @@ pub fn instantiate(
         }
     }
 
-    let mint = match msg.mint {
+    let mint = match msg.token_info.mint {
         Some(m) => Some(MinterData {
             minter: deps.api.addr_validate(&m.minter)?,
             cap: m.cap,
@@ -119,15 +120,20 @@ pub fn instantiate(
 
     // store token info
     let data = TokenInfo {
-        name: msg.name,
-        symbol: msg.symbol,
-        decimals: msg.decimals,
+        name: msg.token_info.name,
+        symbol: msg.token_info.symbol,
+        decimals: msg.token_info.decimals,
         total_supply,
         mint,
     };
+    let compliance_addr = deps
+        .api
+        .addr_validate(&msg.registeries.compliance_address)?;
+    COMPLIANCE_ADDRESS.save(deps.storage, &compliance_addr)?;
+
     TOKEN_INFO.save(deps.storage, &data)?;
 
-    if let Some(marketing) = msg.marketing {
+    if let Some(marketing) = msg.token_info.marketing {
         let logo = if let Some(logo) = marketing.logo {
             verify_logo(&logo)?;
             LOGO.save(deps.storage, &logo)?;
@@ -181,6 +187,35 @@ pub fn validate_accounts(accounts: &[Cw20Coin]) -> Result<(), ContractError> {
     } else {
         Ok(())
     }
+}
+
+pub fn validate_compliance(
+    deps: Deps,
+    from: Option<Addr>,
+    to: Option<Addr>,
+    amount: Option<Uint128>,
+) -> Result<(), ContractError> {
+    use utils::QueryMsg;
+    // check compliance
+    let token_info = TOKEN_INFO.load(deps.storage)?;
+    let compliance_address = COMPLIANCE_ADDRESS.load(deps.storage)?;
+
+    let msg = QueryMsg::CheckTokenCompliance {
+        token_address: Addr::unchecked(token_info.name),
+        from,
+        to,
+        amount,
+    };
+
+    let query = QueryRequest::Wasm(WasmQuery::Smart {
+        contract_addr: compliance_address.to_string(),
+        msg: to_json_binary(&msg)?,
+    });
+    let is_compliant: bool = deps.querier.query(&query)?;
+    if !is_compliant {
+        return Err(ContractError::ComplianceCheckFailed);
+    }
+    Ok(())
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -244,6 +279,14 @@ pub fn execute_transfer(
 ) -> Result<Response, ContractError> {
     let rcpt_addr = deps.api.addr_validate(&recipient)?;
 
+    // add compliance check
+    validate_compliance(
+        deps.as_ref(),
+        Some(info.sender.clone()),
+        Some(rcpt_addr.clone()),
+        Some(amount),
+    )?;
+
     BALANCES.update(
         deps.storage,
         &info.sender,
@@ -271,6 +314,9 @@ pub fn execute_burn(
     info: MessageInfo,
     amount: Uint128,
 ) -> Result<Response, ContractError> {
+    // add compliance check
+    validate_compliance(deps.as_ref(), Some(info.sender.clone()), None, Some(amount))?;
+
     // lower balance
     BALANCES.update(
         deps.storage,
@@ -299,6 +345,15 @@ pub fn execute_mint(
     recipient: String,
     amount: Uint128,
 ) -> Result<Response, ContractError> {
+    let rcpt_addr = deps.api.addr_validate(&recipient)?;
+    // add compliance check
+    validate_compliance(
+        deps.as_ref(),
+        Some(info.sender.clone()),
+        Some(rcpt_addr.clone()),
+        Some(amount),
+    )?;
+
     let mut config = TOKEN_INFO
         .may_load(deps.storage)?
         .ok_or(ContractError::Unauthorized {})?;
@@ -346,6 +401,14 @@ pub fn execute_send(
     msg: Binary,
 ) -> Result<Response, ContractError> {
     let rcpt_addr = deps.api.addr_validate(&contract)?;
+
+    // add compliance check
+    validate_compliance(
+        deps.as_ref(),
+        Some(info.sender.clone()),
+        Some(rcpt_addr.clone()),
+        Some(amount),
+    )?;
 
     // move the tokens to the contract
     BALANCES.update(
@@ -605,12 +668,15 @@ pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, C
 #[cfg(test)]
 mod tests {
     use cosmwasm_std::testing::{
-        message_info, mock_dependencies, mock_dependencies_with_balance, mock_env,
+        message_info, mock_dependencies, mock_dependencies_with_balance, mock_env, MockApi,
     };
-    use cosmwasm_std::{coins, from_json, Addr, CosmosMsg, StdError, SubMsg, WasmMsg};
+    use cosmwasm_std::{
+        coins, from_json, Addr, ContractResult, CosmosMsg, StdError, SubMsg, SystemResult, WasmMsg,
+    };
 
     use super::*;
-    use crate::msg::InstantiateMarketingInfo;
+    use crate::msg::{InstantiateMarketingInfo, InstantiateTokenInfo, Registeries};
+    use utils::QueryMsg::CheckTokenCompliance;
 
     fn get_balance<T: Into<String>>(deps: Deps, address: T) -> Uint128 {
         query_balance(deps, address.into()).unwrap().balance
@@ -648,15 +714,20 @@ mod tests {
         mint: Option<MinterResponse>,
     ) -> TokenInfoResponse {
         let instantiate_msg = InstantiateMsg {
-            name: "Auto Gen".to_string(),
-            symbol: "AUTO".to_string(),
-            decimals: 3,
-            initial_balances: vec![Cw20Coin {
-                address: addr.to_string(),
-                amount,
-            }],
-            mint: mint.clone(),
-            marketing: None,
+            token_info: InstantiateTokenInfo {
+                name: "Auto Gen".to_string(),
+                symbol: "AUTO".to_string(),
+                decimals: 3,
+                initial_balances: vec![Cw20Coin {
+                    address: addr.to_string(),
+                    amount,
+                }],
+                mint: mint.clone(),
+                marketing: None,
+            },
+            registeries: Registeries {
+                compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
+            },
         };
         let info = message_info(&Addr::unchecked("creator"), &[]);
         let env = mock_env();
@@ -689,15 +760,20 @@ mod tests {
             let addr = deps.api.addr_make("addr0000");
             let amount = Uint128::from(11223344u128);
             let instantiate_msg = InstantiateMsg {
-                name: "Cash Token".to_string(),
-                symbol: "CASH".to_string(),
-                decimals: 9,
-                initial_balances: vec![Cw20Coin {
-                    address: addr.to_string(),
-                    amount,
-                }],
-                mint: None,
-                marketing: None,
+                token_info: InstantiateTokenInfo {
+                    name: "Cash Token".to_string(),
+                    symbol: "CASH".to_string(),
+                    decimals: 9,
+                    initial_balances: vec![Cw20Coin {
+                        address: addr.clone().into(),
+                        amount,
+                    }],
+                    mint: None,
+                    marketing: None,
+                },
+                registeries: Registeries {
+                    compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
+                },
             };
             let info = message_info(&Addr::unchecked("creator"), &[]);
             let env = mock_env();
@@ -724,18 +800,23 @@ mod tests {
             let minter = deps.api.addr_make("asmodat").to_string();
             let limit = Uint128::new(511223344);
             let instantiate_msg = InstantiateMsg {
-                name: "Cash Token".to_string(),
-                symbol: "CASH".to_string(),
-                decimals: 9,
-                initial_balances: vec![Cw20Coin {
-                    address: addr.to_string(),
-                    amount,
-                }],
-                mint: Some(MinterResponse {
-                    minter: minter.clone(),
-                    cap: Some(limit),
-                }),
-                marketing: None,
+                token_info: InstantiateTokenInfo {
+                    name: "Cash Token".to_string(),
+                    symbol: "CASH".to_string(),
+                    decimals: 9,
+                    initial_balances: vec![Cw20Coin {
+                        address: addr.to_string(),
+                        amount,
+                    }],
+                    mint: Some(MinterResponse {
+                        minter: minter.clone(),
+                        cap: Some(limit),
+                    }),
+                    marketing: None,
+                },
+                registeries: Registeries {
+                    compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
+                },
             };
             let info = message_info(&Addr::unchecked("creator"), &[]);
             let env = mock_env();
@@ -769,18 +850,23 @@ mod tests {
             let addr = deps.api.addr_make("addr0000");
             let limit = Uint128::new(11223300);
             let instantiate_msg = InstantiateMsg {
-                name: "Cash Token".to_string(),
-                symbol: "CASH".to_string(),
-                decimals: 9,
-                initial_balances: vec![Cw20Coin {
-                    address: addr.to_string(),
-                    amount,
-                }],
-                mint: Some(MinterResponse {
-                    minter: minter.to_string(),
-                    cap: Some(limit),
-                }),
-                marketing: None,
+                token_info: InstantiateTokenInfo {
+                    name: "Cash Token".to_string(),
+                    symbol: "CASH".to_string(),
+                    decimals: 9,
+                    initial_balances: vec![Cw20Coin {
+                        address: addr.to_string(),
+                        amount,
+                    }],
+                    mint: Some(MinterResponse {
+                        minter: minter.to_string(),
+                        cap: Some(limit),
+                    }),
+                    marketing: None,
+                },
+                registeries: Registeries {
+                    compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
+                },
             };
             let info = message_info(&Addr::unchecked("creator"), &[]);
             let env = mock_env();
@@ -801,19 +887,25 @@ mod tests {
                 let marketing = deps.api.addr_make("marketing");
 
                 let instantiate_msg = InstantiateMsg {
-                    name: "Cash Token".to_string(),
-                    symbol: "CASH".to_string(),
-                    decimals: 9,
-                    initial_balances: vec![],
-                    mint: None,
-                    marketing: Some(InstantiateMarketingInfo {
-                        project: Some("Project".to_owned()),
-                        description: Some("Description".to_owned()),
-                        marketing: Some(marketing.to_string()),
-                        logo: Some(Logo::Url("url".to_owned())),
-                    }),
+                    token_info: InstantiateTokenInfo {
+                        name: "Cash Token".to_string(),
+                        symbol: "CASH".to_string(),
+                        decimals: 9,
+                        initial_balances: vec![],
+                        mint: None,
+                        marketing: Some(InstantiateMarketingInfo {
+                            project: Some("Project".to_owned()),
+                            description: Some("Description".to_owned()),
+                            marketing: Some(marketing.to_string()),
+                            logo: Some(Logo::Url("url".to_owned())),
+                        }),
+                    },
+                    registeries: Registeries {
+                        compliance_address: MockApi::default()
+                            .addr_make("compliance_addr")
+                            .to_string(),
+                    },
                 };
-
                 let info = message_info(&Addr::unchecked("creator"), &[]);
                 let env = mock_env();
                 let res = instantiate(deps.as_mut(), env, info, instantiate_msg).unwrap();
@@ -840,17 +932,24 @@ mod tests {
             fn invalid_marketing() {
                 let mut deps = mock_dependencies();
                 let instantiate_msg = InstantiateMsg {
-                    name: "Cash Token".to_string(),
-                    symbol: "CASH".to_string(),
-                    decimals: 9,
-                    initial_balances: vec![],
-                    mint: None,
-                    marketing: Some(InstantiateMarketingInfo {
-                        project: Some("Project".to_owned()),
-                        description: Some("Description".to_owned()),
-                        marketing: Some("m".to_owned()),
-                        logo: Some(Logo::Url("url".to_owned())),
-                    }),
+                    token_info: InstantiateTokenInfo {
+                        name: "Cash Token".to_string(),
+                        symbol: "CASH".to_string(),
+                        decimals: 9,
+                        initial_balances: vec![],
+                        mint: None,
+                        marketing: Some(InstantiateMarketingInfo {
+                            project: Some("Project".to_owned()),
+                            description: Some("Description".to_owned()),
+                            marketing: Some("m".to_owned()),
+                            logo: Some(Logo::Url("url".to_owned())),
+                        }),
+                    },
+                    registeries: Registeries {
+                        compliance_address: MockApi::default()
+                            .addr_make("compliance_addr")
+                            .to_string(),
+                    },
                 };
 
                 let info = message_info(&Addr::unchecked("creator"), &[]);
@@ -874,6 +973,22 @@ mod tests {
         let amount = Uint128::new(11223344);
         let minter = deps.api.addr_make("asmodat").to_string();
         let limit = Uint128::new(511223344);
+
+        // Mock the compliance query
+        deps.querier.update_wasm(|query| match query {
+            cosmwasm_std::WasmQuery::Smart { msg, .. } => {
+                let parsed: utils::QueryMsg = from_json(msg).unwrap();
+                match parsed {
+                    CheckTokenCompliance {
+                        token_address: _,
+                        from: _,
+                        to: _,
+                        amount: _,
+                    } => SystemResult::Ok(ContractResult::Ok(to_json_binary(&true).unwrap())),
+                }
+            }
+            _ => panic!("Unexpected query type"),
+        });
         do_instantiate_with_minter(deps.as_mut(), &genesis, amount, &minter, Some(limit));
 
         // minter can mint coins to some winner
@@ -919,6 +1034,22 @@ mod tests {
         let genesis = deps.api.addr_make("genesis").to_string();
         let minter = deps.api.addr_make("minter").to_string();
         let winner = deps.api.addr_make("winner").to_string();
+
+        // Mock the compliance query
+        deps.querier.update_wasm(|query| match query {
+            cosmwasm_std::WasmQuery::Smart { msg, .. } => {
+                let parsed: utils::QueryMsg = from_json(msg).unwrap();
+                match parsed {
+                    CheckTokenCompliance {
+                        token_address: _,
+                        from: _,
+                        to: _,
+                        amount: _,
+                    } => SystemResult::Ok(ContractResult::Ok(to_json_binary(&true).unwrap())),
+                }
+            }
+            _ => panic!("Unexpected query type"),
+        });
 
         do_instantiate_with_minter(deps.as_mut(), &genesis, Uint128::new(1234), &minter, None);
 
@@ -987,8 +1118,23 @@ mod tests {
         let genesis = deps.api.addr_make("genesis").to_string();
         let minter = deps.api.addr_make("minter").to_string();
         let winner = deps.api.addr_make("winner").to_string();
-
         let cap = None;
+
+        // Mock the compliance query
+        deps.querier.update_wasm(|query| match query {
+            cosmwasm_std::WasmQuery::Smart { msg, .. } => {
+                let parsed: utils::QueryMsg = from_json(msg).unwrap();
+                match parsed {
+                    CheckTokenCompliance {
+                        token_address: _,
+                        from: _,
+                        to: _,
+                        amount: _,
+                    } => SystemResult::Ok(ContractResult::Ok(to_json_binary(&true).unwrap())),
+                }
+            }
+            _ => panic!("Unexpected query type"),
+        });
         do_instantiate_with_minter(deps.as_mut(), &genesis, Uint128::new(1234), &minter, cap);
 
         let msg = ExecuteMsg::UpdateMinter { new_minter: None };
@@ -1022,6 +1168,22 @@ mod tests {
         let genesis = deps.api.addr_make("genesis").to_string();
         let winner = deps.api.addr_make("winner").to_string();
 
+        // Mock the compliance query
+        deps.querier.update_wasm(|query| match query {
+            cosmwasm_std::WasmQuery::Smart { msg, .. } => {
+                let parsed: utils::QueryMsg = from_json(msg).unwrap();
+                match parsed {
+                    CheckTokenCompliance {
+                        token_address: _,
+                        from: _,
+                        to: _,
+                        amount: _,
+                    } => SystemResult::Ok(ContractResult::Ok(to_json_binary(&true).unwrap())),
+                }
+            }
+            _ => panic!("Unexpected query type"),
+        });
+
         do_instantiate(deps.as_mut(), &genesis, Uint128::new(1234));
 
         let msg = ExecuteMsg::Mint {
@@ -1046,21 +1208,26 @@ mod tests {
 
         // Fails with duplicate addresses
         let instantiate_msg = InstantiateMsg {
-            name: "Bash Shell".to_string(),
-            symbol: "BASH".to_string(),
-            decimals: 6,
-            initial_balances: vec![
-                Cw20Coin {
-                    address: addr1.clone(),
-                    amount: amount1,
-                },
-                Cw20Coin {
-                    address: addr1.clone(),
-                    amount: amount2,
-                },
-            ],
-            mint: None,
-            marketing: None,
+            token_info: InstantiateTokenInfo {
+                name: "Bash Shell".to_string(),
+                symbol: "BASH".to_string(),
+                decimals: 6,
+                initial_balances: vec![
+                    Cw20Coin {
+                        address: addr1.clone(),
+                        amount: amount1,
+                    },
+                    Cw20Coin {
+                        address: addr1.clone(),
+                        amount: amount2,
+                    },
+                ],
+                mint: None,
+                marketing: None,
+            },
+            registeries: Registeries {
+                compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
+            },
         };
         let err =
             instantiate(deps.as_mut(), env.clone(), info.clone(), instantiate_msg).unwrap_err();
@@ -1068,21 +1235,26 @@ mod tests {
 
         // Works with unique addresses
         let instantiate_msg = InstantiateMsg {
-            name: "Bash Shell".to_string(),
-            symbol: "BASH".to_string(),
-            decimals: 6,
-            initial_balances: vec![
-                Cw20Coin {
-                    address: addr1.clone(),
-                    amount: amount1,
-                },
-                Cw20Coin {
-                    address: addr2.clone(),
-                    amount: amount2,
-                },
-            ],
-            mint: None,
-            marketing: None,
+            token_info: InstantiateTokenInfo {
+                name: "Bash Shell".to_string(),
+                symbol: "BASH".to_string(),
+                decimals: 6,
+                initial_balances: vec![
+                    Cw20Coin {
+                        address: addr1.clone(),
+                        amount: amount1,
+                    },
+                    Cw20Coin {
+                        address: addr2.clone(),
+                        amount: amount2,
+                    },
+                ],
+                mint: None,
+                marketing: None,
+            },
+            registeries: Registeries {
+                compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
+            },
         };
         let res = instantiate(deps.as_mut(), env, info, instantiate_msg).unwrap();
         assert_eq!(0, res.messages.len());
@@ -1141,6 +1313,22 @@ mod tests {
         let transfer = Uint128::from(76543u128);
         let too_much = Uint128::from(12340321u128);
 
+        // Mock the compliance query
+        deps.querier.update_wasm(|query| match query {
+            cosmwasm_std::WasmQuery::Smart { msg, .. } => {
+                let parsed: utils::QueryMsg = from_json(msg).unwrap();
+                match parsed {
+                    CheckTokenCompliance {
+                        token_address: _,
+                        from: _,
+                        to: _,
+                        amount: _,
+                    } => SystemResult::Ok(ContractResult::Ok(to_json_binary(&true).unwrap())),
+                }
+            }
+            _ => panic!("Unexpected query type"),
+        });
+
         do_instantiate(deps.as_mut(), &addr1, amount1);
 
         // Allows transferring 0
@@ -1192,12 +1380,63 @@ mod tests {
     }
 
     #[test]
+    fn transfer_no_compliance() {
+        let mut deps = mock_dependencies_with_balance(&coins(2, "token"));
+        let addr1 = deps.api.addr_make("addr0001").to_string();
+        let addr2 = deps.api.addr_make("addr0002").to_string();
+        let amount1 = Uint128::from(12340000u128);
+        // Mock the compliance query
+        deps.querier.update_wasm(|query| match query {
+            cosmwasm_std::WasmQuery::Smart { msg, .. } => {
+                let parsed: utils::QueryMsg = from_json(msg).unwrap();
+                match parsed {
+                    CheckTokenCompliance {
+                        token_address: _,
+                        from: _,
+                        to: _,
+                        amount: _,
+                    } => SystemResult::Ok(ContractResult::Ok(to_json_binary(&false).unwrap())),
+                }
+            }
+            _ => panic!("Unexpected query type"),
+        });
+
+        do_instantiate(deps.as_mut(), &addr1, amount1);
+
+        let info = message_info(&Addr::unchecked(addr1.clone()), &[]);
+        let env = mock_env();
+        let msg = ExecuteMsg::Transfer {
+            recipient: addr2.clone(),
+            amount: Uint128::one(),
+        };
+
+        let err = execute(deps.as_mut(), env, info, msg).unwrap_err();
+        assert!(matches!(err, ContractError::ComplianceCheckFailed));
+    }
+
+    #[test]
     fn burn() {
         let mut deps = mock_dependencies_with_balance(&coins(2, "token"));
         let addr1 = deps.api.addr_make("addr0001").to_string();
         let amount1 = Uint128::from(12340000u128);
         let burn = Uint128::from(76543u128);
         let too_much = Uint128::from(12340321u128);
+
+        // Mock the compliance query
+        deps.querier.update_wasm(|query| match query {
+            cosmwasm_std::WasmQuery::Smart { msg, .. } => {
+                let parsed: utils::QueryMsg = from_json(msg).unwrap();
+                match parsed {
+                    CheckTokenCompliance {
+                        token_address: _,
+                        from: _,
+                        to: _,
+                        amount: _,
+                    } => SystemResult::Ok(ContractResult::Ok(to_json_binary(&true).unwrap())),
+                }
+            }
+            _ => panic!("Unexpected query type"),
+        });
 
         do_instantiate(deps.as_mut(), &addr1, amount1);
 
@@ -1249,6 +1488,21 @@ mod tests {
         let too_much = Uint128::from(12340321u128);
         let send_msg = Binary::from(r#"{"some":123}"#.as_bytes());
 
+        // Mock the compliance query
+        deps.querier.update_wasm(|query| match query {
+            cosmwasm_std::WasmQuery::Smart { msg, .. } => {
+                let parsed: utils::QueryMsg = from_json(msg).unwrap();
+                match parsed {
+                    CheckTokenCompliance {
+                        token_address: _,
+                        from: _,
+                        to: _,
+                        amount: _,
+                    } => SystemResult::Ok(ContractResult::Ok(to_json_binary(&true).unwrap())),
+                }
+            }
+            _ => panic!("Unexpected query type"),
+        });
         do_instantiate(deps.as_mut(), &addr1, amount1);
 
         // Allows sending 0
@@ -1343,15 +1597,22 @@ mod tests {
                     cw20_id,
                     Addr::unchecked("sender"),
                     &InstantiateMsg {
-                        name: "Token".to_string(),
-                        symbol: "TOKEN".to_string(),
-                        decimals: 6,
-                        initial_balances: vec![Cw20Coin {
-                            address: sender.clone(),
-                            amount: Uint128::new(100),
-                        }],
-                        mint: None,
-                        marketing: None,
+                        token_info: InstantiateTokenInfo {
+                            name: "Token".to_string(),
+                            symbol: "TOKEN".to_string(),
+                            decimals: 6,
+                            initial_balances: vec![Cw20Coin {
+                                address: sender.clone(),
+                                amount: Uint128::new(100),
+                            }],
+                            mint: None,
+                            marketing: None,
+                        },
+                        registeries: Registeries {
+                            compliance_address: MockApi::default()
+                                .addr_make("compliance_addr")
+                                .to_string(),
+                        },
                     },
                     &[],
                     "TOKEN",
@@ -1446,17 +1707,22 @@ mod tests {
             let marketing = deps.api.addr_make("marketing");
 
             let instantiate_msg = InstantiateMsg {
-                name: "Cash Token".to_string(),
-                symbol: "CASH".to_string(),
-                decimals: 9,
-                initial_balances: vec![],
-                mint: None,
-                marketing: Some(InstantiateMarketingInfo {
-                    project: Some("Project".to_owned()),
-                    description: Some("Description".to_owned()),
-                    marketing: Some(marketing.to_string()),
-                    logo: Some(Logo::Url("url".to_owned())),
-                }),
+                token_info: InstantiateTokenInfo {
+                    name: "Cash Token".to_string(),
+                    symbol: "CASH".to_string(),
+                    decimals: 9,
+                    initial_balances: vec![],
+                    mint: None,
+                    marketing: Some(InstantiateMarketingInfo {
+                        project: Some("Project".to_owned()),
+                        description: Some("Description".to_owned()),
+                        marketing: Some(marketing.to_string()),
+                        logo: Some(Logo::Url("url".to_owned())),
+                    }),
+                },
+                registeries: Registeries {
+                    compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
+                },
             };
 
             let info = message_info(&Addr::unchecked("creator"), &[]);
@@ -1502,17 +1768,22 @@ mod tests {
             let creator = deps.api.addr_make("creator");
 
             let instantiate_msg = InstantiateMsg {
-                name: "Cash Token".to_string(),
-                symbol: "CASH".to_string(),
-                decimals: 9,
-                initial_balances: vec![],
-                mint: None,
-                marketing: Some(InstantiateMarketingInfo {
-                    project: Some("Project".to_owned()),
-                    description: Some("Description".to_owned()),
-                    marketing: Some(creator.to_string()),
-                    logo: Some(Logo::Url("url".to_owned())),
-                }),
+                token_info: InstantiateTokenInfo {
+                    name: "Cash Token".to_string(),
+                    symbol: "CASH".to_string(),
+                    decimals: 9,
+                    initial_balances: vec![],
+                    mint: None,
+                    marketing: Some(InstantiateMarketingInfo {
+                        project: Some("Project".to_owned()),
+                        description: Some("Description".to_owned()),
+                        marketing: Some(creator.to_string()),
+                        logo: Some(Logo::Url("url".to_owned())),
+                    }),
+                },
+                registeries: Registeries {
+                    compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
+                },
             };
 
             let info = message_info(&creator, &[]);
@@ -1557,17 +1828,22 @@ mod tests {
             let creator = deps.api.addr_make("creator");
 
             let instantiate_msg = InstantiateMsg {
-                name: "Cash Token".to_string(),
-                symbol: "CASH".to_string(),
-                decimals: 9,
-                initial_balances: vec![],
-                mint: None,
-                marketing: Some(InstantiateMarketingInfo {
-                    project: Some("Project".to_owned()),
-                    description: Some("Description".to_owned()),
-                    marketing: Some(creator.to_string()),
-                    logo: Some(Logo::Url("url".to_owned())),
-                }),
+                token_info: InstantiateTokenInfo {
+                    name: "Cash Token".to_string(),
+                    symbol: "CASH".to_string(),
+                    decimals: 9,
+                    initial_balances: vec![],
+                    mint: None,
+                    marketing: Some(InstantiateMarketingInfo {
+                        project: Some("Project".to_owned()),
+                        description: Some("Description".to_owned()),
+                        marketing: Some(creator.to_string()),
+                        logo: Some(Logo::Url("url".to_owned())),
+                    }),
+                },
+                registeries: Registeries {
+                    compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
+                },
             };
 
             let info = message_info(&creator, &[]);
@@ -1612,17 +1888,22 @@ mod tests {
             let creator = deps.api.addr_make("creator");
 
             let instantiate_msg = InstantiateMsg {
-                name: "Cash Token".to_string(),
-                symbol: "CASH".to_string(),
-                decimals: 9,
-                initial_balances: vec![],
-                mint: None,
-                marketing: Some(InstantiateMarketingInfo {
-                    project: Some("Project".to_owned()),
-                    description: Some("Description".to_owned()),
-                    marketing: Some(creator.to_string()),
-                    logo: Some(Logo::Url("url".to_owned())),
-                }),
+                token_info: InstantiateTokenInfo {
+                    name: "Cash Token".to_string(),
+                    symbol: "CASH".to_string(),
+                    decimals: 9,
+                    initial_balances: vec![],
+                    mint: None,
+                    marketing: Some(InstantiateMarketingInfo {
+                        project: Some("Project".to_owned()),
+                        description: Some("Description".to_owned()),
+                        marketing: Some(creator.to_string()),
+                        logo: Some(Logo::Url("url".to_owned())),
+                    }),
+                },
+                registeries: Registeries {
+                    compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
+                },
             };
 
             let info = message_info(&creator, &[]);
@@ -1667,17 +1948,22 @@ mod tests {
             let creator = deps.api.addr_make("creator");
 
             let instantiate_msg = InstantiateMsg {
-                name: "Cash Token".to_string(),
-                symbol: "CASH".to_string(),
-                decimals: 9,
-                initial_balances: vec![],
-                mint: None,
-                marketing: Some(InstantiateMarketingInfo {
-                    project: Some("Project".to_owned()),
-                    description: Some("Description".to_owned()),
-                    marketing: Some(creator.to_string()),
-                    logo: Some(Logo::Url("url".to_owned())),
-                }),
+                token_info: InstantiateTokenInfo {
+                    name: "Cash Token".to_string(),
+                    symbol: "CASH".to_string(),
+                    decimals: 9,
+                    initial_balances: vec![],
+                    mint: None,
+                    marketing: Some(InstantiateMarketingInfo {
+                        project: Some("Project".to_owned()),
+                        description: Some("Description".to_owned()),
+                        marketing: Some(creator.to_string()),
+                        logo: Some(Logo::Url("url".to_owned())),
+                    }),
+                },
+                registeries: Registeries {
+                    compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
+                },
             };
 
             let info = message_info(&creator, &[]);
@@ -1723,19 +2009,23 @@ mod tests {
             let marketing = deps.api.addr_make("marketing");
 
             let instantiate_msg = InstantiateMsg {
-                name: "Cash Token".to_string(),
-                symbol: "CASH".to_string(),
-                decimals: 9,
-                initial_balances: vec![],
-                mint: None,
-                marketing: Some(InstantiateMarketingInfo {
-                    project: Some("Project".to_owned()),
-                    description: Some("Description".to_owned()),
-                    marketing: Some(creator.to_string()),
-                    logo: Some(Logo::Url("url".to_owned())),
-                }),
+                token_info: InstantiateTokenInfo {
+                    name: "Cash Token".to_string(),
+                    symbol: "CASH".to_string(),
+                    decimals: 9,
+                    initial_balances: vec![],
+                    mint: None,
+                    marketing: Some(InstantiateMarketingInfo {
+                        project: Some("Project".to_owned()),
+                        description: Some("Description".to_owned()),
+                        marketing: Some(creator.to_string()),
+                        logo: Some(Logo::Url("url".to_owned())),
+                    }),
+                },
+                registeries: Registeries {
+                    compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
+                },
             };
-
             let info = message_info(&creator, &[]);
 
             instantiate(deps.as_mut(), mock_env(), info.clone(), instantiate_msg).unwrap();
@@ -1778,19 +2068,23 @@ mod tests {
             let creator = deps.api.addr_make("creator");
 
             let instantiate_msg = InstantiateMsg {
-                name: "Cash Token".to_string(),
-                symbol: "CASH".to_string(),
-                decimals: 9,
-                initial_balances: vec![],
-                mint: None,
-                marketing: Some(InstantiateMarketingInfo {
-                    project: Some("Project".to_owned()),
-                    description: Some("Description".to_owned()),
-                    marketing: Some(creator.to_string()),
-                    logo: Some(Logo::Url("url".to_owned())),
-                }),
+                token_info: InstantiateTokenInfo {
+                    name: "Cash Token".to_string(),
+                    symbol: "CASH".to_string(),
+                    decimals: 9,
+                    initial_balances: vec![],
+                    mint: None,
+                    marketing: Some(InstantiateMarketingInfo {
+                        project: Some("Project".to_owned()),
+                        description: Some("Description".to_owned()),
+                        marketing: Some(creator.to_string()),
+                        logo: Some(Logo::Url("url".to_owned())),
+                    }),
+                },
+                registeries: Registeries {
+                    compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
+                },
             };
-
             let info = message_info(&creator, &[]);
 
             instantiate(deps.as_mut(), mock_env(), info.clone(), instantiate_msg).unwrap();
@@ -1836,17 +2130,22 @@ mod tests {
             let creator = deps.api.addr_make("creator");
 
             let instantiate_msg = InstantiateMsg {
-                name: "Cash Token".to_string(),
-                symbol: "CASH".to_string(),
-                decimals: 9,
-                initial_balances: vec![],
-                mint: None,
-                marketing: Some(InstantiateMarketingInfo {
-                    project: Some("Project".to_owned()),
-                    description: Some("Description".to_owned()),
-                    marketing: Some(creator.to_string()),
-                    logo: Some(Logo::Url("url".to_owned())),
-                }),
+                token_info: InstantiateTokenInfo {
+                    name: "Cash Token".to_string(),
+                    symbol: "CASH".to_string(),
+                    decimals: 9,
+                    initial_balances: vec![],
+                    mint: None,
+                    marketing: Some(InstantiateMarketingInfo {
+                        project: Some("Project".to_owned()),
+                        description: Some("Description".to_owned()),
+                        marketing: Some(creator.to_string()),
+                        logo: Some(Logo::Url("url".to_owned())),
+                    }),
+                },
+                registeries: Registeries {
+                    compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
+                },
             };
 
             let info = message_info(&creator, &[]);
@@ -1891,17 +2190,22 @@ mod tests {
             let creator = deps.api.addr_make("creator");
 
             let instantiate_msg = InstantiateMsg {
-                name: "Cash Token".to_string(),
-                symbol: "CASH".to_string(),
-                decimals: 9,
-                initial_balances: vec![],
-                mint: None,
-                marketing: Some(InstantiateMarketingInfo {
-                    project: Some("Project".to_owned()),
-                    description: Some("Description".to_owned()),
-                    marketing: Some(creator.to_string()),
-                    logo: Some(Logo::Url("url".to_owned())),
-                }),
+                token_info: InstantiateTokenInfo {
+                    name: "Cash Token".to_string(),
+                    symbol: "CASH".to_string(),
+                    decimals: 9,
+                    initial_balances: vec![],
+                    mint: None,
+                    marketing: Some(InstantiateMarketingInfo {
+                        project: Some("Project".to_owned()),
+                        description: Some("Description".to_owned()),
+                        marketing: Some(creator.to_string()),
+                        logo: Some(Logo::Url("url".to_owned())),
+                    }),
+                },
+                registeries: Registeries {
+                    compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
+                },
             };
 
             let info = message_info(&creator, &[]);
@@ -1942,17 +2246,22 @@ mod tests {
             let creator = deps.api.addr_make("creator");
 
             let instantiate_msg = InstantiateMsg {
-                name: "Cash Token".to_string(),
-                symbol: "CASH".to_string(),
-                decimals: 9,
-                initial_balances: vec![],
-                mint: None,
-                marketing: Some(InstantiateMarketingInfo {
-                    project: Some("Project".to_owned()),
-                    description: Some("Description".to_owned()),
-                    marketing: Some(creator.to_string()),
-                    logo: Some(Logo::Url("url".to_owned())),
-                }),
+                token_info: InstantiateTokenInfo {
+                    name: "Cash Token".to_string(),
+                    symbol: "CASH".to_string(),
+                    decimals: 9,
+                    initial_balances: vec![],
+                    mint: None,
+                    marketing: Some(InstantiateMarketingInfo {
+                        project: Some("Project".to_owned()),
+                        description: Some("Description".to_owned()),
+                        marketing: Some(creator.to_string()),
+                        logo: Some(Logo::Url("url".to_owned())),
+                    }),
+                },
+                registeries: Registeries {
+                    compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
+                },
             };
 
             let info = message_info(&creator, &[]);
@@ -1995,17 +2304,22 @@ mod tests {
             let creator = deps.api.addr_make("creator");
 
             let instantiate_msg = InstantiateMsg {
-                name: "Cash Token".to_string(),
-                symbol: "CASH".to_string(),
-                decimals: 9,
-                initial_balances: vec![],
-                mint: None,
-                marketing: Some(InstantiateMarketingInfo {
-                    project: Some("Project".to_owned()),
-                    description: Some("Description".to_owned()),
-                    marketing: Some(creator.to_string()),
-                    logo: Some(Logo::Url("url".to_owned())),
-                }),
+                token_info: InstantiateTokenInfo {
+                    name: "Cash Token".to_string(),
+                    symbol: "CASH".to_string(),
+                    decimals: 9,
+                    initial_balances: vec![],
+                    mint: None,
+                    marketing: Some(InstantiateMarketingInfo {
+                        project: Some("Project".to_owned()),
+                        description: Some("Description".to_owned()),
+                        marketing: Some(creator.to_string()),
+                        logo: Some(Logo::Url("url".to_owned())),
+                    }),
+                },
+                registeries: Registeries {
+                    compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
+                },
             };
 
             let info = message_info(&creator, &[]);
@@ -2049,17 +2363,22 @@ mod tests {
             let creator = deps.api.addr_make("creator");
 
             let instantiate_msg = InstantiateMsg {
-                name: "Cash Token".to_string(),
-                symbol: "CASH".to_string(),
-                decimals: 9,
-                initial_balances: vec![],
-                mint: None,
-                marketing: Some(InstantiateMarketingInfo {
-                    project: Some("Project".to_owned()),
-                    description: Some("Description".to_owned()),
-                    marketing: Some(creator.to_string()),
-                    logo: Some(Logo::Url("url".to_owned())),
-                }),
+                token_info: InstantiateTokenInfo {
+                    name: "Cash Token".to_string(),
+                    symbol: "CASH".to_string(),
+                    decimals: 9,
+                    initial_balances: vec![],
+                    mint: None,
+                    marketing: Some(InstantiateMarketingInfo {
+                        project: Some("Project".to_owned()),
+                        description: Some("Description".to_owned()),
+                        marketing: Some(creator.to_string()),
+                        logo: Some(Logo::Url("url".to_owned())),
+                    }),
+                },
+                registeries: Registeries {
+                    compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
+                },
             };
 
             let info = message_info(&Addr::unchecked("creator"), &[]);
@@ -2101,17 +2420,22 @@ mod tests {
             let creator = deps.api.addr_make("creator");
 
             let instantiate_msg = InstantiateMsg {
-                name: "Cash Token".to_string(),
-                symbol: "CASH".to_string(),
-                decimals: 9,
-                initial_balances: vec![],
-                mint: None,
-                marketing: Some(InstantiateMarketingInfo {
-                    project: Some("Project".to_owned()),
-                    description: Some("Description".to_owned()),
-                    marketing: Some(creator.to_string()),
-                    logo: Some(Logo::Url("url".to_owned())),
-                }),
+                token_info: InstantiateTokenInfo {
+                    name: "Cash Token".to_string(),
+                    symbol: "CASH".to_string(),
+                    decimals: 9,
+                    initial_balances: vec![],
+                    mint: None,
+                    marketing: Some(InstantiateMarketingInfo {
+                        project: Some("Project".to_owned()),
+                        description: Some("Description".to_owned()),
+                        marketing: Some(creator.to_string()),
+                        logo: Some(Logo::Url("url".to_owned())),
+                    }),
+                },
+                registeries: Registeries {
+                    compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
+                },
             };
 
             let info = message_info(&Addr::unchecked("creator"), &[]);
@@ -2160,17 +2484,22 @@ mod tests {
             let creator = deps.api.addr_make("creator");
 
             let instantiate_msg = InstantiateMsg {
-                name: "Cash Token".to_string(),
-                symbol: "CASH".to_string(),
-                decimals: 9,
-                initial_balances: vec![],
-                mint: None,
-                marketing: Some(InstantiateMarketingInfo {
-                    project: Some("Project".to_owned()),
-                    description: Some("Description".to_owned()),
-                    marketing: Some(creator.to_string()),
-                    logo: Some(Logo::Url("url".to_owned())),
-                }),
+                token_info: InstantiateTokenInfo {
+                    name: "Cash Token".to_string(),
+                    symbol: "CASH".to_string(),
+                    decimals: 9,
+                    initial_balances: vec![],
+                    mint: None,
+                    marketing: Some(InstantiateMarketingInfo {
+                        project: Some("Project".to_owned()),
+                        description: Some("Description".to_owned()),
+                        marketing: Some(creator.to_string()),
+                        logo: Some(Logo::Url("url".to_owned())),
+                    }),
+                },
+                registeries: Registeries {
+                    compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
+                },
             };
 
             let info = message_info(&Addr::unchecked("creator"), &[]);
@@ -2212,17 +2541,22 @@ mod tests {
             let creator = deps.api.addr_make("creator");
 
             let instantiate_msg = InstantiateMsg {
-                name: "Cash Token".to_string(),
-                symbol: "CASH".to_string(),
-                decimals: 9,
-                initial_balances: vec![],
-                mint: None,
-                marketing: Some(InstantiateMarketingInfo {
-                    project: Some("Project".to_owned()),
-                    description: Some("Description".to_owned()),
-                    marketing: Some(creator.to_string()),
-                    logo: Some(Logo::Url("url".to_owned())),
-                }),
+                token_info: InstantiateTokenInfo {
+                    name: "Cash Token".to_string(),
+                    symbol: "CASH".to_string(),
+                    decimals: 9,
+                    initial_balances: vec![],
+                    mint: None,
+                    marketing: Some(InstantiateMarketingInfo {
+                        project: Some("Project".to_owned()),
+                        description: Some("Description".to_owned()),
+                        marketing: Some(creator.to_string()),
+                        logo: Some(Logo::Url("url".to_owned())),
+                    }),
+                },
+                registeries: Registeries {
+                    compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
+                },
             };
 
             let info = message_info(&Addr::unchecked("creator"), &[]);
