@@ -79,9 +79,6 @@ pub fn verify_claim_signature(
 
 pub fn hash_claim_without_signature(claim: &Claim) -> [u8; 32] {
     let mut hasher = Sha256::new();
-    // if let Some(id) = &claim.id {
-    //     hasher.update(id.as_bytes());
-    // }
     hasher.update(claim.topic.to_string().as_bytes());
     hasher.update(claim.issuer.as_bytes());
     hasher.update(&claim.data);
