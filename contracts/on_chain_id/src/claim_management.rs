@@ -1,14 +1,17 @@
 use crate::error::ContractError;
 use crate::state::{Claim, KeyType, CLAIMS, OWNER};
-use crate::utils::{check_key_authorization, generate_claim_id, verify_claim_signature};
-use cosmwasm_std::{Binary, DepsMut, MessageInfo, Response};
+use crate::utils::{check_key_authorization, verify_claim_signature};
+use cosmwasm_std::{Addr, Binary, DepsMut, MessageInfo, Response, Uint128};
 
 pub fn execute_add_claim(
     deps: DepsMut,
     info: MessageInfo,
-    mut claim: Claim,
+    claim: Claim,
     public_key: Binary,
+    user_addr: Addr,
 ) -> Result<Response, ContractError> {
+    // Check sender is authorized
+
     // Check if the sender is authorized to add claims (must have a CLAIM_SIGNER_KEY)
     check_key_authorization(&deps, &info.sender, KeyType::ClaimSignerKey).map_err(|e| {
         ContractError::Unauthorized {
@@ -24,28 +27,20 @@ pub fn execute_add_claim(
     })?;
 
     // Generate and set the claim ID
-    generate_claim_id(&mut claim);
-
-    // Get the owner of the identity
-    let owner = OWNER
-        .load(deps.storage)
-        .map_err(|e| ContractError::LoadError {
-            entity: "owner".to_string(),
-            reason: e.to_string(),
-        })?;
+    // generate_claim_id(&mut claim);
 
     // Load existing claims or create a new vector if none exist
     let mut claims = CLAIMS
-        .may_load(deps.storage, &owner)
+        .may_load(deps.storage, &user_addr)
         .map_err(|e| ContractError::LoadError {
             entity: "claims".to_string(),
             reason: e.to_string(),
         })?
         .unwrap_or_default();
     // Check if the claim already exists
-    if claims.iter().any(|c| c.id == claim.id) {
+    if claims.iter().any(|c| c.topic == claim.topic) {
         return Err(ContractError::ClaimAlreadyExists {
-            claim_id: claim.id.clone().unwrap_or_default(),
+            claim_topic: claim.topic,
         });
     }
 
@@ -54,7 +49,7 @@ pub fn execute_add_claim(
 
     // Save the updated claims
     CLAIMS
-        .save(deps.storage, &owner, &claims)
+        .save(deps.storage, &user_addr, &claims)
         .map_err(|e| ContractError::SaveError {
             entity: "claims".to_string(),
             reason: e.to_string(),
@@ -62,13 +57,14 @@ pub fn execute_add_claim(
 
     Ok(Response::new()
         .add_attribute("action", "add_claim")
-        .add_attribute("claim_id", claim.id.unwrap_or_default()))
+        .add_attribute("claim_topic", claim.topic))
 }
 
 pub fn execute_remove_claim(
     deps: DepsMut,
     info: MessageInfo,
-    claim_id: String,
+    claim_topic: Uint128,
+    user_addr: Addr,
 ) -> Result<Response, ContractError> {
     // Check if the sender is authorized to remove claims (must have a CLAIM_SIGNER_KEY)
     check_key_authorization(&deps, &info.sender, KeyType::ClaimSignerKey).map_err(|e| {
@@ -86,15 +82,16 @@ pub fn execute_remove_claim(
         })?;
 
     // Load existing claims
-    let mut claims = CLAIMS
-        .load(deps.storage, &owner)
-        .map_err(|e| ContractError::LoadError {
-            entity: "claims".to_string(),
-            reason: e.to_string(),
-        })?;
+    let mut claims =
+        CLAIMS
+            .load(deps.storage, &user_addr)
+            .map_err(|e| ContractError::LoadError {
+                entity: "claims".to_string(),
+                reason: e.to_string(),
+            })?;
 
     // Find the claim and check authorization
-    if let Some(index) = claims.iter().position(|c| c.id == Some(claim_id.clone())) {
+    if let Some(index) = claims.iter().position(|c| c.topic == claim_topic) {
         let claim = &claims[index];
 
         // Check if the sender is the issuer or the owner
@@ -110,16 +107,16 @@ pub fn execute_remove_claim(
 
         // Save the updated claims
         CLAIMS
-            .save(deps.storage, &owner, &claims)
+            .save(deps.storage, &user_addr, &claims)
             .map_err(|e| ContractError::SaveError {
                 entity: "claims".to_string(),
                 reason: e.to_string(),
             })?;
     } else {
-        return Err(ContractError::ClaimNotFound { claim_id });
+        return Err(ContractError::ClaimNotFound { claim_topic });
     }
 
     Ok(Response::new()
         .add_attribute("action", "remove_claim")
-        .add_attribute("claim_id", claim_id))
+        .add_attribute("claim_topic", claim_topic))
 }

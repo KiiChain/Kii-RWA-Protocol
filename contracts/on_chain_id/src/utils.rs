@@ -1,6 +1,6 @@
 use crate::error::ContractError;
-use crate::state::{Claim, ClaimTopic, KeyType, CLAIMS, KEYS, OWNER};
-use cosmwasm_std::{Addr, Binary, Deps, DepsMut};
+use crate::state::{Claim, KeyType, KEYS, OWNER};
+use cosmwasm_std::{Addr, Binary, DepsMut};
 use sha2::{Digest, Sha256};
 
 pub fn check_key_authorization(
@@ -45,8 +45,8 @@ pub fn generate_claim_id(claim: &mut Claim) {
     hasher.update(claim.issuer.as_bytes());
     hasher.update(&claim.data);
     hasher.update(claim.uri.as_bytes());
-    let id = hex::encode(hasher.finalize());
-    claim.id = Some(id);
+    // let id = hex::encode(hasher.finalize());
+    // claim.id = Some(id);
 }
 
 pub fn verify_claim_signature(
@@ -79,29 +79,9 @@ pub fn verify_claim_signature(
 
 pub fn hash_claim_without_signature(claim: &Claim) -> [u8; 32] {
     let mut hasher = Sha256::new();
-    if let Some(id) = &claim.id {
-        hasher.update(id.as_bytes());
-    }
     hasher.update(claim.topic.to_string().as_bytes());
     hasher.update(claim.issuer.as_bytes());
     hasher.update(&claim.data);
     hasher.update(claim.uri.as_bytes());
     hasher.finalize().into()
-}
-
-pub fn verify_claim(
-    deps: Deps,
-    identity: Addr,
-    claim_topic: ClaimTopic,
-) -> Result<bool, ContractError> {
-    // Load claims for the given identity
-    let claims = CLAIMS
-        .load(deps.storage, &identity)
-        .map_err(|e| ContractError::LoadError {
-            entity: "claims".to_string(),
-            reason: e.to_string(),
-        })?;
-
-    // Check if any claim matches the given topic
-    Ok(claims.iter().any(|claim| claim.topic == claim_topic))
 }

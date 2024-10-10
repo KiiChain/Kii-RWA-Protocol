@@ -1,5 +1,5 @@
 use crate::error::ContractError;
-use cosmwasm_std::{Addr, Binary};
+use cosmwasm_std::{Addr, Binary, Uint128};
 use cw_storage_plus::{Item, Map};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -23,8 +23,7 @@ pub struct Key {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Claim {
-    pub id: Option<String>,
-    pub topic: ClaimTopic,
+    pub topic: Uint128,
     pub issuer: Addr,
     pub signature: Binary,
     pub data: Binary,
@@ -41,19 +40,6 @@ pub enum KeyType {
     ClaimSignerKey,
     // 4: ENCRYPTION keys, used to encrypt data e.g. hold in claims.
     EncryptionKey,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub enum ClaimTopic {
-    // You're a person and not a business
-    BiometricTopic,
-    // You have a physical address or reference point
-    ResidenceTopic,
-    RegistryTopic,
-    // TODO: social media profiles, blogs, etc.
-    ProfileTopic,
-    // TODO: real name, business name, nick name, brand name, alias, etc.
-    LabelTopic,
 }
 
 impl FromStr for KeyType {
@@ -79,35 +65,6 @@ impl fmt::Display for KeyType {
             KeyType::ExecutionKey => write!(f, "ExecutionKey"),
             KeyType::ClaimSignerKey => write!(f, "ClaimSignerKey"),
             KeyType::EncryptionKey => write!(f, "EncryptionKey"),
-        }
-    }
-}
-
-impl FromStr for ClaimTopic {
-    type Err = ContractError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "BiometricTopic" => Ok(ClaimTopic::BiometricTopic),
-            "ResidenceTopic" => Ok(ClaimTopic::ResidenceTopic),
-            "RegistryTopic" => Ok(ClaimTopic::RegistryTopic),
-            "ProfileTopic" => Ok(ClaimTopic::ProfileTopic),
-            "LabelTopic" => Ok(ClaimTopic::LabelTopic),
-            _ => Err(ContractError::InvalidClaimTopic {
-                topic: s.to_string(),
-            }),
-        }
-    }
-}
-
-impl fmt::Display for ClaimTopic {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ClaimTopic::BiometricTopic => write!(f, "BiometricTopic"),
-            ClaimTopic::ResidenceTopic => write!(f, "ResidenceTopic"),
-            ClaimTopic::RegistryTopic => write!(f, "RegistryTopic"),
-            ClaimTopic::ProfileTopic => write!(f, "ProfileTopic"),
-            ClaimTopic::LabelTopic => write!(f, "LabelTopic"),
         }
     }
 }

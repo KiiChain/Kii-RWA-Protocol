@@ -2,6 +2,7 @@
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     to_json_binary, Addr, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult,
+    Uint128,
 };
 use cw2::set_contract_version;
 use std::str::FromStr;
@@ -10,7 +11,7 @@ use crate::claim_management::{execute_add_claim, execute_remove_claim};
 use crate::error::ContractError;
 use crate::key_management::{execute_add_key, execute_remove_key};
 use crate::msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
-use crate::state::{Claim, ClaimTopic, Key, KeyType, CLAIMS, KEYS, OWNER};
+use crate::state::{Claim, Key, KeyType, CLAIMS, KEYS, OWNER};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:onchainid";
@@ -74,10 +75,15 @@ pub fn execute(
             key_owner,
             key_type,
         } => execute_remove_key(deps, info, key_owner, key_type),
-        ExecuteMsg::AddClaim { claim, public_key } => {
-            execute_add_claim(deps, info, claim, public_key)
-        }
-        ExecuteMsg::RemoveClaim { claim_id } => execute_remove_claim(deps, info, claim_id),
+        ExecuteMsg::AddClaim {
+            claim,
+            public_key,
+            user_addr,
+        } => execute_add_claim(deps, info, claim, public_key, user_addr),
+        ExecuteMsg::RemoveClaim {
+            claim_topic,
+            user_addr,
+        } => execute_remove_claim(deps, info, claim_topic, user_addr),
     }
 }
 
@@ -88,17 +94,14 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             key_owner,
             key_type,
         } => to_json_binary(&query_key(deps, key_owner, key_type)?),
-        QueryMsg::GetClaim { claim_id } => to_json_binary(&query_claim(deps, claim_id)?),
-        QueryMsg::GetClaimIdsByTopic { topic } => {
-            to_json_binary(&query_claim_ids_by_topic(deps, topic)?)
+        QueryMsg::GetValidatedClaimsForUser { user_addr } => {
+            to_json_binary(&get_validated_claims_for_user(deps, user_addr)?)
         }
-        QueryMsg::GetClaimsByIssuer { issuer } => {
-            to_json_binary(&query_claims_by_issuer(deps, issuer)?)
-        }
+
         QueryMsg::VerifyClaim {
             claim_id,
-            trusted_issuers_registry,
-        } => to_json_binary(&verify_claim(deps, claim_id, trusted_issuers_registry)?),
+            user_addr,
+        } => to_json_binary(&verify_claim(deps, claim_id, user_addr)?),
         QueryMsg::GetOwner {} => to_json_binary(&query_owner(deps)?),
     }
 }
@@ -158,76 +161,22 @@ fn query_key(deps: Deps, key_owner: String, key_type: String) -> StdResult<Key> 
         })
 }
 
-fn query_claim(deps: Deps, claim_id: String) -> StdResult<Claim> {
-    let owner = OWNER
-        .load(deps.storage)
-        .map_err(|e| StdError::generic_err(format!("Failed to load owner: {}", e)))?;
-    let claims = CLAIMS.load(deps.storage, &owner).map_err(|e| {
-        StdError::generic_err(format!("Failed to load claims for owner {}: {}", owner, e))
-    })?;
-    claims
-        .iter()
-        .find(|claim| claim.id == Some(claim_id.clone()))
-        .cloned()
-        .ok_or_else(|| StdError::not_found(format!("Claim not found with id: {}", claim_id)))
+fn get_validated_claims_for_user(deps: Deps, user_addr: Addr) -> StdResult<Vec<Claim>> {
+    let user_addr = deps.api.addr_validate(user_addr.as_str())?;
+
+    let claims = CLAIMS
+        .load(deps.storage, &user_addr)
+        .map_err(|e| StdError::generic_err(format!("User has no claims {}: {}", user_addr, e)))?;
+    Ok(claims)
 }
 
-fn query_claim_ids_by_topic(deps: Deps, topic: String) -> StdResult<Vec<String>> {
-    let topic = ClaimTopic::from_str(&topic)
-        .map_err(|_| StdError::parse_err("ClaimTopic", format!("Invalid topic: {}", topic)))?;
-    let owner = OWNER
-        .load(deps.storage)
-        .map_err(|e| StdError::generic_err(format!("Failed to load owner: {}", e)))?;
-    let claims = CLAIMS.load(deps.storage, &owner).map_err(|e| {
-        StdError::generic_err(format!("Failed to load claims for owner {}: {}", owner, e))
-    })?;
-    let claim_ids: Vec<String> = claims
-        .iter()
-        .filter_map(|claim| {
-            if claim.topic == topic {
-                claim.id.clone()
-            } else {
-                None
-            }
-        })
-        .collect();
-    Ok(claim_ids)
-}
+fn verify_claim(deps: Deps, claim_id: Uint128, user_addr: Addr) -> StdResult<bool> {
+    let user_addr = deps.api.addr_validate(user_addr.as_str())?;
+    let claims = CLAIMS
+        .load(deps.storage, &user_addr)
+        .map_err(|e| StdError::generic_err(format!("User has no claims  {}: {}", user_addr, e)))?;
 
-fn query_claims_by_issuer(deps: Deps, issuer: String) -> StdResult<Vec<Claim>> {
-    let issuer_addr = deps
-        .api
-        .addr_validate(&issuer)
-        .map_err(|e| StdError::generic_err(format!("Invalid issuer address: {}", e)))?;
-    let owner = OWNER
-        .load(deps.storage)
-        .map_err(|e| StdError::generic_err(format!("Failed to load owner: {}", e)))?;
-    let claims = CLAIMS.load(deps.storage, &owner).map_err(|e| {
-        StdError::generic_err(format!("Failed to load claims for owner {}: {}", owner, e))
-    })?;
-    let filtered_claims: Vec<Claim> = claims
-        .into_iter()
-        .filter(|claim| claim.issuer == issuer_addr)
-        .collect();
-    Ok(filtered_claims)
-}
-
-fn verify_claim(deps: Deps, claim_id: String, trusted_issuers_registry: String) -> StdResult<bool> {
-    let claim = query_claim(deps, claim_id.clone())
-        .map_err(|e| StdError::generic_err(format!("Failed to query claim {}: {}", claim_id, e)))?;
-
-    // Here you would typically check if the claim issuer is in the trusted issuers registry
-    // For this example, we'll just check if the issuer matches the provided registry
-    // In a real implementation, you'd want to query an actual registry contract
-
-    let registry_addr = deps
-        .api
-        .addr_validate(&trusted_issuers_registry)
-        .map_err(|e| {
-            StdError::generic_err(format!("Invalid trusted issuers registry address: {}", e))
-        })?;
-
-    Ok(claim.issuer == registry_addr)
+    Ok(claims.iter().any(|claim| claim.topic == claim_id))
 }
 
 fn query_owner(deps: Deps) -> StdResult<Addr> {
@@ -240,7 +189,7 @@ fn query_owner(deps: Deps) -> StdResult<Addr> {
 mod tests {
     use super::*;
     use crate::utils::hash_claim_without_signature;
-    use cosmwasm_std::{Addr, Binary};
+    use cosmwasm_std::{testing::MockApi, Addr, Binary};
     use cw_multi_test::{App, ContractWrapper, Executor};
     use secp256k1::{Message, PublicKey, Secp256k1, SecretKey};
 
@@ -337,6 +286,7 @@ mod tests {
         let mut app = App::default();
         let (owner_addr, owner_secret_key, owner_public_key) = create_wallet(&app);
         let contract_addr = instantiate_contract(&mut app, owner_addr.clone());
+        let user_addr = MockApi::default().addr_make("user_addr");
 
         // Add a claim signer key first
         let msg = ExecuteMsg::AddKey {
@@ -348,8 +298,7 @@ mod tests {
 
         // Create a claim
         let claim = Claim {
-            id: None,
-            topic: ClaimTopic::BiometricTopic,
+            topic: Uint128::one(),
             issuer: owner_addr.clone(),
             signature: Binary::from(vec![]), // This will be filled later
             data: Binary::from(vec![4, 5, 6]),
@@ -374,43 +323,40 @@ mod tests {
         let msg = ExecuteMsg::AddClaim {
             claim: signed_claim.clone(),
             public_key: Binary::from(owner_public_key.serialize()),
+            user_addr: user_addr.clone(),
         };
-        let res = app
-            .execute_contract(owner_addr.clone(), contract_addr.clone(), &msg, &[])
+        app.execute_contract(owner_addr.clone(), contract_addr.clone(), &msg, &[])
             .unwrap();
 
-        // Correctly retrieve the claim_id from the attributes
-        let claim_id = res
-            .events
-            .iter()
-            .find(|e| e.ty == "wasm")
-            .and_then(|e| e.attributes.iter().find(|attr| attr.key == "claim_id"))
-            .map(|attr| attr.value.clone())
-            .expect("Claim ID not found in response");
-
         // Test querying the added claim
-        let res: Claim = app
+        let res: bool = app
             .wrap()
             .query_wasm_smart(
                 contract_addr.clone(),
-                &QueryMsg::GetClaim {
-                    claim_id: claim_id.clone(),
+                &QueryMsg::VerifyClaim {
+                    claim_id: Uint128::one(),
+                    user_addr: user_addr.clone(),
                 },
             )
             .unwrap();
-        assert_eq!(res.topic, ClaimTopic::BiometricTopic);
+        assert_eq!(res, true);
 
         // Test removing the claim
         let msg = ExecuteMsg::RemoveClaim {
-            claim_id: claim_id.clone(),
+            claim_topic: Uint128::one(),
+            user_addr: user_addr.clone(),
         };
         app.execute_contract(owner_addr.clone(), contract_addr.clone(), &msg, &[])
             .unwrap();
 
         // Verify the claim is removed
-        let res: Result<Claim, _> = app
-            .wrap()
-            .query_wasm_smart(contract_addr, &QueryMsg::GetClaim { claim_id });
+        let res: StdResult<Binary> = app.wrap().query_wasm_smart(
+            contract_addr.clone(),
+            &QueryMsg::VerifyClaim {
+                claim_id: Uint128::one(),
+                user_addr: user_addr.clone(),
+            },
+        );
         assert!(res.is_err());
     }
 
@@ -419,6 +365,7 @@ mod tests {
         let mut app = App::default();
         let (owner_addr, owner_secret_key, owner_public_key) = create_wallet(&app);
         let contract_addr = instantiate_contract(&mut app, owner_addr.clone());
+        let user_addr = MockApi::default().addr_make("user_addr");
 
         // Add a claim signer key
         let msg = ExecuteMsg::AddKey {
@@ -428,17 +375,11 @@ mod tests {
         app.execute_contract(owner_addr.clone(), contract_addr.clone(), &msg, &[])
             .unwrap();
 
-        let claim_topics = vec![
-            ClaimTopic::BiometricTopic,
-            ClaimTopic::ResidenceTopic,
-            ClaimTopic::RegistryTopic,
-        ];
-        let mut claim_ids = Vec::new();
+        let claim_topics = vec![Uint128::one(), Uint128::new(7777), Uint128::new(88)];
 
         // Add claims one at a time
         for topic in &claim_topics {
             let claim = Claim {
-                id: None,
                 topic: topic.clone(),
                 issuer: owner_addr.clone(),
                 signature: Binary::from(vec![]),
@@ -459,65 +400,29 @@ mod tests {
             let msg = ExecuteMsg::AddClaim {
                 claim: signed_claim,
                 public_key: Binary::from(owner_public_key.serialize()),
+                user_addr: user_addr.clone(),
             };
-            let res = app
-                .execute_contract(owner_addr.clone(), contract_addr.clone(), &msg, &[])
+            app.execute_contract(owner_addr.clone(), contract_addr.clone(), &msg, &[])
                 .unwrap();
-
-            let claim_id = res
-                .events
-                .iter()
-                .find(|e| e.ty == "wasm")
-                .and_then(|e| e.attributes.iter().find(|attr| attr.key == "claim_id"))
-                .map(|attr| attr.value.clone())
-                .expect("Claim ID not found in response");
-
-            claim_ids.push(claim_id);
         }
 
         // Query and verify each claim
-        for (i, topic) in claim_topics.iter().enumerate() {
-            let res: Claim = app
+        for (_, topic) in claim_topics.iter().enumerate() {
+            let res: bool = app
                 .wrap()
                 .query_wasm_smart(
                     contract_addr.clone(),
-                    &QueryMsg::GetClaim {
-                        claim_id: claim_ids[i].clone(),
+                    &QueryMsg::VerifyClaim {
+                        claim_id: *topic,
+                        user_addr: user_addr.clone(),
                     },
                 )
                 .unwrap();
-            assert_eq!(res.topic, *topic);
+            assert_eq!(res, true);
         }
-
-        // Test GetClaimIdsByTopic
-        for topic in &claim_topics {
-            let res: Vec<String> = app
-                .wrap()
-                .query_wasm_smart(
-                    contract_addr.clone(),
-                    &QueryMsg::GetClaimIdsByTopic {
-                        topic: topic.to_string(),
-                    },
-                )
-                .unwrap();
-            assert_eq!(res.len(), 1);
-        }
-
-        // Test GetClaimsByIssuer
-        let res: Vec<Claim> = app
-            .wrap()
-            .query_wasm_smart(
-                contract_addr.clone(),
-                &QueryMsg::GetClaimsByIssuer {
-                    issuer: owner_addr.to_string(),
-                },
-            )
-            .unwrap();
-        assert_eq!(res.len(), claim_topics.len());
 
         // Attempt to add a duplicate claim
         let duplicate_claim = Claim {
-            id: Some(claim_ids[0].clone()),
             topic: claim_topics[0].clone(),
             issuer: owner_addr.clone(),
             signature: Binary::from(vec![]),
@@ -535,6 +440,7 @@ mod tests {
         let msg = ExecuteMsg::AddClaim {
             claim: signed_duplicate_claim,
             public_key: Binary::from(owner_public_key.serialize()),
+            user_addr: user_addr.clone(),
         };
         let err = app
             .execute_contract(owner_addr.clone(), contract_addr.clone(), &msg, &[])
