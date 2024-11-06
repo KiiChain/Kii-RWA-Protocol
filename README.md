@@ -1,6 +1,6 @@
 ![kii-chain-logo](logo.png)
 
-# CW3643 - T-REX PROTOCOL On Kii-Chain
+# CW3643 - T-REX PROTOCOL On KiiChain
 
 ## Overview
 
