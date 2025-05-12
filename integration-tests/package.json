@@ -1,0 +1,20 @@
+{
+  "name": "integration-tests",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha"
+  },
+  "author": "Valentin C.",
+  "license": "ISC",
+  "description": "Integration tests for the CW3643 standard",
+  "dependencies": {
+    "@cosmjs/cosmwasm-stargate": "^0.32.4",
+    "@cosmjs/crypto": "^0.32.4",
+    "@cosmjs/proto-signing": "^0.32.4",
+    "@cosmjs/stargate": "^0.32.4",
+    "chai": "^5.1.1",
+    "dotenv": "^16.4.5",
+    "mocha": "^10.7.3"
+  }
+}

@@ -6,14 +6,22 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::str::FromStr;
 
-//Addr being the Key owner
-pub const KEYS: Map<&Addr, Vec<Key>> = Map::new("keys");
-
-//Addr being the Identity owner
-pub const CLAIMS: Map<&Addr, Vec<Claim>> = Map::new("claims");
-
-//Addr being the Owner of the Identity (not to be confused with the Key owner)
+//Addr being the Owner of the Contract
 pub const OWNER: Item<Addr> = Item::new("owner");
+
+//Contract Addr of trusted issuers
+pub const TRUSTED_ISSUERS_ADDR: Item<Addr> = Item::new("trusted_issuer");
+
+//Addr being the Owner of the Identity
+pub const IDENTITIES: Map<Addr, Identity> = Map::new("identities");
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct Identity {
+    pub owner: Addr,
+    pub country: String,
+    pub keys: Vec<Key>,
+    pub claims: Vec<Claim>,
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Key {
@@ -25,7 +33,6 @@ pub struct Key {
 pub struct Claim {
     pub topic: Uint128,
     pub issuer: Addr,
-    pub signature: Binary,
     pub data: Binary,
     pub uri: String,
 }

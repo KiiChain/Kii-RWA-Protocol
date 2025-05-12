@@ -1,10 +1,10 @@
 ![kii-chain-logo](logo.png)
 
-# CW3643 - T-REX PROTOCOL On KiiChain
+# CW3643 - T-REX PROTOCOL On Kii-Chain
 
 ## Overview
 
-This document outlines the detailed implementation plan for the T-REX (Token for Regulated EXchanges) protocol using CosmWasm smart contracts on KiiChain. The T-REX protocol is designed for compliant issuance and management of security tokens on blockchain networks.
+This document outlines the detailed implementation plan for the T-REX (Token for Regulated EXchanges) protocol using CosmWasm smart contracts on Kii-Chain. The T-REX protocol is designed for compliant issuance and management of security tokens on blockchain networks.
 
 ## Contracts and Their Methods
 

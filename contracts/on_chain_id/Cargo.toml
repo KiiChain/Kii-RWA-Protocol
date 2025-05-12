@@ -9,16 +9,6 @@ edition = "2021"
 [lib]
 crate-type = ["cdylib", "rlib"]
 
-[profile.release]
-opt-level = 3
-debug = false
-rpath = false
-lto = true
-debug-assertions = false
-codegen-units = 1
-panic = 'abort'
-incremental = false
-overflow-checks = true
 
 [features]
 # use library feature to disable all instantiate/execute/query exports
@@ -32,23 +22,20 @@ optimize = """docker run --rm -v "$(pwd)":/code \
 """
 
 [dependencies]
-cosmwasm-schema = "2.1.0"
-cosmwasm-std = { version = "2.1.0", features = [
-  "cosmwasm_1_4",
-  # Enable this if you only deploy to chains that have CosmWasm 2.0 or higher
-  # "cosmwasm_2_0",
-] }
-cw-storage-plus = "2.0.0"
-cw2 = "2.0.0"
+cosmwasm-schema = { workspace = true }
+cosmwasm-std = { workspace = true }
+cw-storage-plus = { workspace = true }
+cw2 = { workspace = true }
 schemars = "0.8.16"
 serde = { version = "1.0.197", default-features = false, features = ["derive"] }
 thiserror = { version = "1.0.58" }
 hex = "0.4"
 sha2 = "0.10.8"
 serde_json = "1.0"
-secp256k1 = { version = "0.24.0", features = ["rand"] }
+getrandom = { version = "0.2", features = ["js"] }
 rand = "0.8.5"
 semver = { workspace = true }
 
 [dev-dependencies]
-cw-multi-test = "2.0.0"
+cw-multi-test = { workspace = true }
+secp256k1 = { version = "0.24.0", features = ["rand"] }

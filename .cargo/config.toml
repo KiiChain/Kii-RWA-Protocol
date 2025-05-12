@@ -3,3 +3,17 @@ wasm = "build --release --lib --target wasm32-unknown-unknown"
 unit-test = "test --lib"
 schema = "run --bin schema"
 integration-test = "test --lib integration_tests"
+build_all = """build
+    --release
+    --lib
+    --target wasm32-unknown-unknown
+    --package agent-roles
+    --package owner-roles
+    --package trusted-issuers
+    --package claim-topics
+    --package cw20-base
+    --package compliance-registry
+    --package compliance-country-restriction
+    --package on_chain_id
+    --package compliance-claims
+"""

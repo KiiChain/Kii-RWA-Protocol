@@ -9,9 +9,12 @@ use std::str::FromStr;
 
 use crate::claim_management::{execute_add_claim, execute_remove_claim};
 use crate::error::ContractError;
+use crate::identity_management::{
+    execute_add_identity, execute_remove_identity, execute_update_country,
+};
 use crate::key_management::{execute_add_key, execute_remove_key};
 use crate::msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
-use crate::state::{Claim, Key, KeyType, CLAIMS, KEYS, OWNER};
+use crate::state::{Claim, Identity, Key, KeyType, IDENTITIES, OWNER, TRUSTED_ISSUERS_ADDR};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:onchainid";
@@ -38,21 +41,26 @@ pub fn instantiate(
             reason: format!("Invalid owner address: {}", e),
         })?;
 
-    // Create and save the management key for the owner
-    let key = Key {
-        key_type: KeyType::ManagementKey,
-        owner: owner.clone(),
-    };
-    KEYS.save(deps.storage, &owner, &vec![key])
-        .map_err(|e| ContractError::SaveError {
-            entity: "keys".to_string(),
-            reason: e.to_string(),
-        })?;
     // Save the owner
     OWNER
         .save(deps.storage, &owner)
         .map_err(|e| ContractError::SaveError {
             entity: "owner".to_string(),
+            reason: e.to_string(),
+        })?;
+
+    let trusted_issuer_addr = deps
+        .api
+        .addr_validate(&msg.trusted_issuer_addr)
+        .map_err(|e| ContractError::InvalidAddress {
+            reason: format!("Invalid trusted issuer address: {}", e),
+        })?;
+
+    // Save the trusted issuers address
+    TRUSTED_ISSUERS_ADDR
+        .save(deps.storage, &trusted_issuer_addr)
+        .map_err(|e| ContractError::SaveError {
+            entity: "trusted_issuer".to_string(),
             reason: e.to_string(),
         })?;
 
@@ -67,23 +75,32 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
     match msg {
+        ExecuteMsg::AddIdentity { country } => execute_add_identity(deps, info, country),
+        ExecuteMsg::RemoveIdentity { identity_owner } => {
+            execute_remove_identity(deps, info, identity_owner)
+        }
+        ExecuteMsg::UpdateCountry {
+            new_country,
+            identity_owner,
+        } => execute_update_country(deps, info, new_country, identity_owner),
         ExecuteMsg::AddKey {
             key_owner,
             key_type,
-        } => execute_add_key(deps, info, key_owner, key_type),
+            identity_owner,
+        } => execute_add_key(deps, info, key_owner, key_type, identity_owner),
         ExecuteMsg::RevokeKey {
             key_owner,
             key_type,
-        } => execute_remove_key(deps, info, key_owner, key_type),
+            identity_owner,
+        } => execute_remove_key(deps, info, key_owner, key_type, identity_owner),
         ExecuteMsg::AddClaim {
             claim,
-            public_key,
-            user_addr,
-        } => execute_add_claim(deps, info, claim, public_key, user_addr),
+            identity_owner,
+        } => execute_add_claim(deps, info, claim, identity_owner),
         ExecuteMsg::RemoveClaim {
             claim_topic,
-            user_addr,
-        } => execute_remove_claim(deps, info, claim_topic, user_addr),
+            identity_owner,
+        } => execute_remove_claim(deps, info, claim_topic, identity_owner),
     }
 }
 
@@ -93,16 +110,28 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::GetKey {
             key_owner,
             key_type,
-        } => to_json_binary(&query_key(deps, key_owner, key_type)?),
-        QueryMsg::GetValidatedClaimsForUser { user_addr } => {
-            to_json_binary(&get_validated_claims_for_user(deps, user_addr)?)
+            identity_owner,
+        } => to_json_binary(&query_key(deps, key_owner, key_type, identity_owner)?),
+        QueryMsg::GetValidatedClaimsForUser { identity_owner } => {
+            to_json_binary(&get_validated_claims_for_user(deps, identity_owner)?)
         }
-
         QueryMsg::VerifyClaim {
             claim_id,
-            user_addr,
-        } => to_json_binary(&verify_claim(deps, claim_id, user_addr)?),
+            identity_owner,
+        } => to_json_binary(&verify_claim(deps, claim_id, identity_owner)?),
         QueryMsg::GetOwner {} => to_json_binary(&query_owner(deps)?),
+        QueryMsg::GetIdentity { identity_owner } => {
+            to_json_binary(&query_identity(deps, identity_owner)?)
+        }
+        QueryMsg::GetAllKeysForIdentity { identity_owner } => {
+            to_json_binary(&query_all_keys_for_identity(deps, identity_owner)?)
+        }
+        QueryMsg::GetAllClaimsForIdentity { identity_owner } => {
+            to_json_binary(&query_all_claims_for_identity(deps, identity_owner)?)
+        }
+        QueryMsg::GetCountryForIdentity { identity_owner } => {
+            to_json_binary(&query_country_for_identity(deps, identity_owner)?)
+        }
     }
 }
 
@@ -137,63 +166,82 @@ pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, C
         .add_attribute("to_version", CONTRACT_VERSION))
 }
 
-fn query_key(deps: Deps, key_owner: String, key_type: String) -> StdResult<Key> {
-    let key_owner = deps
-        .api
-        .addr_validate(&key_owner)
-        .map_err(|e| StdError::generic_err(format!("Invalid key owner address: {}", e)))?;
-    let key_type = KeyType::from_str(&key_type)
-        .map_err(|_| StdError::generic_err(format!("Invalid key type: {}", key_type)))?;
-    let owner = OWNER
-        .load(deps.storage)
-        .map_err(|e| StdError::generic_err(format!("Failed to load owner: {}", e)))?;
-    let keys = KEYS.load(deps.storage, &owner).map_err(|e| {
-        StdError::generic_err(format!("Failed to load keys for owner {}: {}", owner, e))
-    })?;
-    keys.iter()
+fn query_key(
+    deps: Deps,
+    key_owner: String,
+    key_type: String,
+    identity_owner: String,
+) -> StdResult<Key> {
+    let key_owner = deps.api.addr_validate(&key_owner)?;
+    let identity_owner = deps.api.addr_validate(&identity_owner)?;
+    let key_type =
+        KeyType::from_str(&key_type).map_err(|e| StdError::generic_err(e.to_string()))?;
+
+    let identity = IDENTITIES.load(deps.storage, identity_owner.clone())?;
+
+    identity
+        .keys
+        .iter()
         .find(|key| key.key_type == key_type && key.owner == key_owner)
         .cloned()
         .ok_or_else(|| {
             StdError::not_found(format!(
-                "Key not found for owner {} and type {:?}",
-                key_owner, key_type
+                "Key not found for owner {} and type {:?} in identity {}",
+                key_owner, key_type, identity_owner
             ))
         })
 }
 
-fn get_validated_claims_for_user(deps: Deps, user_addr: Addr) -> StdResult<Vec<Claim>> {
-    let user_addr = deps.api.addr_validate(user_addr.as_str())?;
-
-    let claims = CLAIMS
-        .load(deps.storage, &user_addr)
-        .map_err(|e| StdError::generic_err(format!("User has no claims {}: {}", user_addr, e)))?;
-    Ok(claims)
+fn get_validated_claims_for_user(deps: Deps, identity_owner: String) -> StdResult<Vec<Claim>> {
+    let identity_owner = deps.api.addr_validate(&identity_owner)?;
+    let identity = IDENTITIES.load(deps.storage, identity_owner)?;
+    Ok(identity.claims)
 }
 
-fn verify_claim(deps: Deps, claim_id: Uint128, user_addr: Addr) -> StdResult<bool> {
-    let user_addr = deps.api.addr_validate(user_addr.as_str())?;
-    let claims = CLAIMS
-        .load(deps.storage, &user_addr)
-        .map_err(|e| StdError::generic_err(format!("User has no claims  {}: {}", user_addr, e)))?;
-
-    Ok(claims.iter().any(|claim| claim.topic == claim_id))
+fn verify_claim(deps: Deps, claim_id: Uint128, identity_owner: String) -> StdResult<bool> {
+    let identity_owner = deps.api.addr_validate(&identity_owner)?;
+    let identity = IDENTITIES.load(deps.storage, identity_owner)?;
+    Ok(identity.claims.iter().any(|claim| claim.topic == claim_id))
 }
 
 fn query_owner(deps: Deps) -> StdResult<Addr> {
-    OWNER
-        .load(deps.storage)
-        .map_err(|e| StdError::generic_err(format!("Failed to load owner: {}", e)))
+    OWNER.load(deps.storage)
+}
+
+fn query_identity(deps: Deps, identity_owner: String) -> StdResult<Identity> {
+    let identity_owner = deps.api.addr_validate(&identity_owner)?;
+    IDENTITIES.load(deps.storage, identity_owner)
+}
+
+fn query_all_keys_for_identity(deps: Deps, identity_owner: String) -> StdResult<Vec<Key>> {
+    let identity_owner = deps.api.addr_validate(&identity_owner)?;
+    let identity = IDENTITIES.load(deps.storage, identity_owner)?;
+    Ok(identity.keys)
+}
+
+fn query_all_claims_for_identity(deps: Deps, identity_owner: String) -> StdResult<Vec<Claim>> {
+    let identity_owner = deps.api.addr_validate(&identity_owner)?;
+    let identity = IDENTITIES.load(deps.storage, identity_owner)?;
+    Ok(identity.claims)
+}
+
+fn query_country_for_identity(deps: Deps, identity_owner: String) -> StdResult<String> {
+    let identity_owner = deps.api.addr_validate(&identity_owner)?;
+    let identity = IDENTITIES.load(deps.storage, identity_owner)?;
+    Ok(identity.country)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::utils::hash_claim_without_signature;
-    use cosmwasm_std::{testing::MockApi, Addr, Binary};
+    use cosmwasm_std::{
+        from_json,
+        testing::{message_info, mock_dependencies, mock_env, MockApi},
+        Addr, Binary, ContractResult, SystemResult, WasmQuery,
+    };
     use cw_multi_test::{App, ContractWrapper, Executor};
-    use secp256k1::{Message, PublicKey, Secp256k1, SecretKey};
 
-    fn instantiate_contract(app: &mut App, owner: Addr) -> Addr {
+    fn instantiate_contract(app: &mut App, owner: Addr, trusted_issuer_addr: Addr) -> Addr {
         let code = ContractWrapper::new(execute, instantiate, query);
         let code_id = app.store_code(Box::new(code));
 
@@ -202,6 +250,7 @@ mod tests {
             owner.clone(),
             &InstantiateMsg {
                 owner: owner.to_string(),
+                trusted_issuer_addr: trusted_issuer_addr.to_string(),
             },
             &[],
             "On-chain ID Contract",
@@ -210,20 +259,14 @@ mod tests {
         .unwrap()
     }
 
-    fn create_wallet(app: &App) -> (Addr, SecretKey, PublicKey) {
-        let secp = Secp256k1::new();
-        let secret_key = SecretKey::new(&mut rand::thread_rng());
-        let public_key = PublicKey::from_secret_key(&secp, &secret_key);
-        let addr = app.api().addr_make(&public_key.to_string());
-        (addr.clone(), secret_key, public_key)
-    }
-
     #[test]
     fn proper_initialization() {
         let mut app = App::default();
         let owner = app.api().addr_make("owner");
+        let trusted_issuers_addr = app.api().addr_make("trusted_issers_addr");
 
-        let contract_addr = instantiate_contract(&mut app, owner.clone());
+        let contract_addr =
+            instantiate_contract(&mut app, owner.clone(), trusted_issuers_addr.clone());
 
         // Test query_owner
         let res: Addr = app
@@ -237,7 +280,16 @@ mod tests {
     fn add_and_remove_key() {
         let mut app = App::default();
         let owner = app.api().addr_make("owner");
-        let contract_addr = instantiate_contract(&mut app, owner.clone());
+        let trusted_issuers_addr = app.api().addr_make("trusted_issers_addr");
+        let contract_addr =
+            instantiate_contract(&mut app, owner.clone(), trusted_issuers_addr.clone());
+
+        // Add identity first
+        let msg = ExecuteMsg::AddIdentity {
+            country: "US".to_string(),
+        };
+        app.execute_contract(owner.clone(), contract_addr.clone(), &msg, &[])
+            .unwrap();
 
         let key_owner = app.api().addr_make("new_key_owner");
 
@@ -245,27 +297,31 @@ mod tests {
         let msg = ExecuteMsg::AddKey {
             key_owner: key_owner.to_string(),
             key_type: "ExecutionKey".to_string(),
+            identity_owner: owner.to_string(),
         };
         app.execute_contract(owner.clone(), contract_addr.clone(), &msg, &[])
             .unwrap();
+
         // Test querying the added key
         let res: Key = app
             .wrap()
             .query_wasm_smart(
                 contract_addr.clone(),
                 &QueryMsg::GetKey {
-                    key_owner: key_owner.to_string().clone(),
+                    key_owner: key_owner.to_string(),
                     key_type: "ExecutionKey".to_string(),
+                    identity_owner: owner.to_string(),
                 },
             )
             .unwrap();
-        assert_eq!(res.owner, Addr::unchecked(key_owner.clone()));
+        assert_eq!(res.owner, key_owner);
         assert_eq!(res.key_type, KeyType::ExecutionKey);
 
         // Test removing the key
         let msg = ExecuteMsg::RevokeKey {
             key_owner: key_owner.to_string(),
             key_type: "ExecutionKey".to_string(),
+            identity_owner: owner.to_string(),
         };
         app.execute_contract(owner.clone(), contract_addr.clone(), &msg, &[])
             .unwrap();
@@ -276,6 +332,7 @@ mod tests {
             &QueryMsg::GetKey {
                 key_owner: key_owner.to_string(),
                 key_type: "ExecutionKey".to_string(),
+                identity_owner: owner.to_string(),
             },
         );
         assert!(res.is_err());
@@ -283,290 +340,366 @@ mod tests {
 
     #[test]
     fn add_and_remove_claim() {
-        let mut app = App::default();
-        let (owner_addr, owner_secret_key, owner_public_key) = create_wallet(&app);
-        let contract_addr = instantiate_contract(&mut app, owner_addr.clone());
-        let user_addr = MockApi::default().addr_make("user_addr");
+        let mut deps = mock_dependencies();
+        // mock_querier(&mut deps);
+        deps.querier.update_wasm(|query| match query {
+            WasmQuery::Smart {
+                contract_addr: _,
+                msg,
+            } => {
+                let parsed: serde_json::Value = from_json(msg).unwrap();
+                if parsed.get("is_trusted_issuer").is_some() {
+                    SystemResult::Ok(ContractResult::Ok(to_json_binary(&true).unwrap()))
+                } else {
+                    panic!("Unexpected query: {:?}", msg)
+                }
+            }
+            _ => panic!("Unexpected query type"),
+        });
 
-        // Add a claim signer key first
-        let msg = ExecuteMsg::AddKey {
-            key_owner: owner_addr.to_string(),
-            key_type: "ClaimSignerKey".to_string(),
+        let env = mock_env();
+        let owner_addr = MockApi::default().addr_make("owner");
+        let identity_owner = MockApi::default().addr_make("identity_owner");
+
+        // Instantiate the contract
+        let msg = InstantiateMsg {
+            owner: MockApi::default().addr_make("owner").into_string(),
+            trusted_issuer_addr: MockApi::default()
+                .addr_make("trusted_issuer_addr")
+                .into_string(),
         };
-        app.execute_contract(owner_addr.clone(), contract_addr.clone(), &msg, &[])
-            .unwrap();
+        let info = message_info(&owner_addr, &[]);
+        let _ = instantiate(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
 
-        // Create a claim
-        let claim = Claim {
-            topic: Uint128::one(),
-            issuer: owner_addr.clone(),
-            signature: Binary::from(vec![]), // This will be filled later
-            data: Binary::from(vec![4, 5, 6]),
-            uri: "https://example.com".to_string(),
+        // Add identity
+        let msg = ExecuteMsg::AddIdentity {
+            country: "US".to_string(),
         };
-
-        // Hash the claim data (excluding signature)
-        let message_hash = hash_claim_without_signature(&claim);
-
-        // Sign the hash
-        let secp = Secp256k1::new();
-        let message = Message::from_slice(&message_hash).unwrap();
-        let signature = secp.sign_ecdsa(&message, &owner_secret_key);
-
-        // Create the final claim with the signature
-        let signed_claim = Claim {
-            signature: Binary::from(signature.serialize_compact()),
-            ..claim
-        };
-
-        // Test adding the claim
-        let msg = ExecuteMsg::AddClaim {
-            claim: signed_claim.clone(),
-            public_key: Binary::from(owner_public_key.serialize()),
-            user_addr: user_addr.clone(),
-        };
-        app.execute_contract(owner_addr.clone(), contract_addr.clone(), &msg, &[])
-            .unwrap();
-
-        // Test querying the added claim
-        let res: bool = app
-            .wrap()
-            .query_wasm_smart(
-                contract_addr.clone(),
-                &QueryMsg::VerifyClaim {
-                    claim_id: Uint128::one(),
-                    user_addr: user_addr.clone(),
-                },
-            )
-            .unwrap();
-        assert_eq!(res, true);
-
-        // Test removing the claim
-        let msg = ExecuteMsg::RemoveClaim {
-            claim_topic: Uint128::one(),
-            user_addr: user_addr.clone(),
-        };
-        app.execute_contract(owner_addr.clone(), contract_addr.clone(), &msg, &[])
-            .unwrap();
-
-        // Verify the claim is removed
-        let res: StdResult<Binary> = app.wrap().query_wasm_smart(
-            contract_addr.clone(),
-            &QueryMsg::VerifyClaim {
-                claim_id: Uint128::one(),
-                user_addr: user_addr.clone(),
-            },
-        );
-        assert!(res.is_err());
-    }
-
-    #[test]
-    fn add_and_query_claims() {
-        let mut app = App::default();
-        let (owner_addr, owner_secret_key, owner_public_key) = create_wallet(&app);
-        let contract_addr = instantiate_contract(&mut app, owner_addr.clone());
-        let user_addr = MockApi::default().addr_make("user_addr");
+        let info = message_info(&identity_owner, &[]);
+        let _ = execute(deps.as_mut(), env.clone(), info, msg).unwrap();
 
         // Add a claim signer key
         let msg = ExecuteMsg::AddKey {
             key_owner: owner_addr.to_string(),
             key_type: "ClaimSignerKey".to_string(),
+            identity_owner: identity_owner.to_string(),
         };
-        app.execute_contract(owner_addr.clone(), contract_addr.clone(), &msg, &[])
-            .unwrap();
+        let info = message_info(&identity_owner, &[]);
+        let _ = execute(deps.as_mut(), env.clone(), info, msg).unwrap();
 
-        let claim_topics = vec![Uint128::one(), Uint128::new(7777), Uint128::new(88)];
-
-        // Add claims one at a time
-        for topic in &claim_topics {
-            let claim = Claim {
-                topic: topic.clone(),
-                issuer: owner_addr.clone(),
-                signature: Binary::from(vec![]),
-                data: Binary::from(vec![1, 2, 3]),
-                uri: "https://example.com".to_string(),
-            };
-
-            let message_hash = hash_claim_without_signature(&claim);
-            let secp = Secp256k1::new();
-            let message = Message::from_slice(&message_hash).unwrap();
-            let signature = secp.sign_ecdsa(&message, &owner_secret_key);
-
-            let signed_claim = Claim {
-                signature: Binary::from(signature.serialize_compact()),
-                ..claim
-            };
-
-            let msg = ExecuteMsg::AddClaim {
-                claim: signed_claim,
-                public_key: Binary::from(owner_public_key.serialize()),
-                user_addr: user_addr.clone(),
-            };
-            app.execute_contract(owner_addr.clone(), contract_addr.clone(), &msg, &[])
-                .unwrap();
-        }
-
-        // Query and verify each claim
-        for (_, topic) in claim_topics.iter().enumerate() {
-            let res: bool = app
-                .wrap()
-                .query_wasm_smart(
-                    contract_addr.clone(),
-                    &QueryMsg::VerifyClaim {
-                        claim_id: *topic,
-                        user_addr: user_addr.clone(),
-                    },
-                )
-                .unwrap();
-            assert_eq!(res, true);
-        }
-
-        // Attempt to add a duplicate claim
-        let duplicate_claim = Claim {
-            topic: claim_topics[0].clone(),
+        // Create and add a claim
+        let claim = Claim {
+            topic: Uint128::one(),
             issuer: owner_addr.clone(),
-            signature: Binary::from(vec![]),
-            data: Binary::from(vec![1, 2, 3]),
+            data: Binary::from(vec![4, 5, 6]),
             uri: "https://example.com".to_string(),
         };
-        let message_hash = hash_claim_without_signature(&duplicate_claim);
-        let secp = Secp256k1::new();
-        let message = Message::from_slice(&message_hash).unwrap();
-        let signature = secp.sign_ecdsa(&message, &owner_secret_key);
-        let signed_duplicate_claim = Claim {
-            signature: Binary::from(signature.serialize_compact()),
-            ..duplicate_claim
-        };
         let msg = ExecuteMsg::AddClaim {
-            claim: signed_duplicate_claim,
-            public_key: Binary::from(owner_public_key.serialize()),
-            user_addr: user_addr.clone(),
+            claim: claim.clone(),
+            identity_owner: identity_owner.to_string(),
         };
-        let err = app
-            .execute_contract(owner_addr.clone(), contract_addr.clone(), &msg, &[])
-            .unwrap_err();
-        assert!(err.to_string().contains("Error"));
+        let info = message_info(&owner_addr, &[]);
+        let _ = execute(deps.as_mut(), env.clone(), info, msg).unwrap();
+
+        // Query to verify the claim was added
+        let msg = QueryMsg::VerifyClaim {
+            claim_id: Uint128::one(),
+            identity_owner: identity_owner.to_string(),
+        };
+        let res = query(deps.as_ref(), mock_env(), msg).unwrap();
+        let claim_added: bool = from_json(res).unwrap();
+        assert!(claim_added);
+
+        // Remove the claim
+        let msg = ExecuteMsg::RemoveClaim {
+            claim_topic: Uint128::one(),
+            identity_owner: identity_owner.to_string(),
+        };
+        let info = message_info(&owner_addr, &[]);
+        let _ = execute(deps.as_mut(), env.clone(), info, msg).unwrap();
+
+        // Query to verify the claim was removed
+        let msg = QueryMsg::VerifyClaim {
+            claim_id: Uint128::one(),
+            identity_owner: identity_owner.to_string(),
+        };
+
+        let res = query(deps.as_ref(), mock_env(), msg).unwrap();
+        let res: bool = from_json(res).unwrap();
+        assert!(!res);
     }
 
     #[test]
-    fn add_different_key_types() {
+    fn unauthorized_add_claim() {
+        let mut deps = mock_dependencies();
+        // mock_querier(&mut deps);
+        deps.querier.update_wasm(|query| match query {
+            WasmQuery::Smart {
+                contract_addr: _,
+                msg,
+            } => {
+                let parsed: serde_json::Value = from_json(msg).unwrap();
+                if parsed.get("is_trusted_issuer").is_some() {
+                    SystemResult::Ok(ContractResult::Ok(to_json_binary(&false).unwrap()))
+                } else {
+                    panic!("Unexpected query: {:?}", msg)
+                }
+            }
+            _ => panic!("Unexpected query type"),
+        });
+
+        let env = mock_env();
+        let owner_addr = MockApi::default().addr_make("owner");
+        let identity_owner = MockApi::default().addr_make("identity_owner");
+
+        // Instantiate the contract
+        let msg = InstantiateMsg {
+            owner: MockApi::default().addr_make("owner").into_string(),
+            trusted_issuer_addr: MockApi::default()
+                .addr_make("trusted_issuer_addr")
+                .into_string(),
+        };
+        let info = message_info(&owner_addr, &[]);
+        let _ = instantiate(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
+
+        // Add identity
+        let msg = ExecuteMsg::AddIdentity {
+            country: "US".to_string(),
+        };
+        let info = message_info(&identity_owner, &[]);
+        let _ = execute(deps.as_mut(), env.clone(), info, msg).unwrap();
+
+        // Add a claim signer key
+        let msg = ExecuteMsg::AddKey {
+            key_owner: owner_addr.to_string(),
+            key_type: "ClaimSignerKey".to_string(),
+            identity_owner: identity_owner.to_string(),
+        };
+        let info = message_info(&identity_owner, &[]);
+        let _ = execute(deps.as_mut(), env.clone(), info, msg).unwrap();
+
+        // Create and add a claim
+        let claim = Claim {
+            topic: Uint128::one(),
+            issuer: owner_addr.clone(),
+            data: Binary::from(vec![4, 5, 6]),
+            uri: "https://example.com".to_string(),
+        };
+        let msg = ExecuteMsg::AddClaim {
+            claim: claim.clone(),
+            identity_owner: identity_owner.to_string(),
+        };
+        let info = message_info(&owner_addr, &[]);
+        let res = execute(deps.as_mut(), env.clone(), info, msg);
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn add_and_remove_identity() {
         let mut app = App::default();
         let owner = app.api().addr_make("owner");
-        let contract_addr = instantiate_contract(&mut app, owner.clone());
+        let trusted_issuers_addr = app.api().addr_make("trusted_issers_addr");
 
-        let key_types = vec!["ExecutionKey", "ClaimSignerKey", "EncryptionKey"];
+        let contract_addr =
+            instantiate_contract(&mut app, owner.clone(), trusted_issuers_addr.clone());
 
-        // Add keys one at a time
-        for key_type in &key_types {
+        // Add identity
+        let msg = ExecuteMsg::AddIdentity {
+            country: "US".to_string(),
+        };
+        app.execute_contract(owner.clone(), contract_addr.clone(), &msg, &[])
+            .unwrap();
+
+        // Verify identity exists (indirectly by adding a key)
+        let msg = ExecuteMsg::AddKey {
+            key_owner: owner.to_string(),
+            key_type: "ExecutionKey".to_string(),
+            identity_owner: owner.to_string(),
+        };
+        let res = app.execute_contract(owner.clone(), contract_addr.clone(), &msg, &[]);
+        assert!(res.is_ok());
+
+        // Remove identity
+        let msg = ExecuteMsg::RemoveIdentity {
+            identity_owner: owner.to_string(),
+        };
+        app.execute_contract(owner.clone(), contract_addr.clone(), &msg, &[])
+            .unwrap();
+
+        // Verify identity doesn't exist (indirectly by trying to add a key)
+        let msg = ExecuteMsg::AddKey {
+            key_owner: owner.to_string(),
+            key_type: "ExecutionKey".to_string(),
+            identity_owner: owner.to_string(),
+        };
+        let res = app.execute_contract(owner.clone(), contract_addr.clone(), &msg, &[]);
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn update_country() {
+        let mut app = App::default();
+        let owner = app.api().addr_make("owner");
+        let trusted_issuers_addr = app.api().addr_make("trusted_issers_addr");
+        let contract_addr =
+            instantiate_contract(&mut app, owner.clone(), trusted_issuers_addr.clone());
+
+        // Add identity
+        let msg = ExecuteMsg::AddIdentity {
+            country: "US".to_string(),
+        };
+        app.execute_contract(owner.clone(), contract_addr.clone(), &msg, &[])
+            .unwrap();
+
+        // Update country
+        let msg = ExecuteMsg::UpdateCountry {
+            new_country: "CA".to_string(),
+            identity_owner: owner.to_string(),
+        };
+        app.execute_contract(owner.clone(), contract_addr.clone(), &msg, &[])
+            .unwrap();
+
+        // Verify country update (indirectly by checking if the identity still exists)
+        let msg = ExecuteMsg::AddKey {
+            key_owner: owner.to_string(),
+            key_type: "ExecutionKey".to_string(),
+            identity_owner: owner.to_string(),
+        };
+        let res = app.execute_contract(owner.clone(), contract_addr.clone(), &msg, &[]);
+        assert!(res.is_ok());
+    }
+
+    #[test]
+    fn test_query_key() {
+        let mut app = App::default();
+        let owner = app.api().addr_make("owner");
+        let trusted_issuers_addr = app.api().addr_make("trusted_issers_addr");
+
+        let contract_addr =
+            instantiate_contract(&mut app, owner.clone(), trusted_issuers_addr.clone());
+
+        // Add identity
+        let msg = ExecuteMsg::AddIdentity {
+            country: "US".to_string(),
+        };
+        app.execute_contract(owner.clone(), contract_addr.clone(), &msg, &[])
+            .unwrap();
+
+        // Add a key for an external wallet
+        let external_wallet = app.api().addr_make("external_wallet");
+        let msg = ExecuteMsg::AddKey {
+            key_owner: external_wallet.to_string(),
+            key_type: "ExecutionKey".to_string(),
+            identity_owner: owner.to_string(),
+        };
+        app.execute_contract(owner.clone(), contract_addr.clone(), &msg, &[])
+            .unwrap();
+
+        // Query the key
+        let res: Key = app
+            .wrap()
+            .query_wasm_smart(
+                contract_addr.clone(),
+                &QueryMsg::GetKey {
+                    key_owner: external_wallet.to_string(),
+                    key_type: "ExecutionKey".to_string(),
+                    identity_owner: owner.to_string(),
+                },
+            )
+            .unwrap();
+
+        assert_eq!(res.owner, external_wallet);
+        assert_eq!(res.key_type, KeyType::ExecutionKey);
+
+        // Try to query the key with incorrect identity_owner (should fail)
+        let incorrect_query: StdResult<Key> = app.wrap().query_wasm_smart(
+            contract_addr.clone(),
+            &QueryMsg::GetKey {
+                key_owner: external_wallet.to_string(),
+                key_type: "ExecutionKey".to_string(),
+                identity_owner: external_wallet.to_string(), // Incorrect identity owner
+            },
+        );
+
+        assert!(incorrect_query.is_err());
+    }
+
+    #[test]
+    fn test_query_identity() {
+        let mut app = App::default();
+        let owner = app.api().addr_make("owner");
+        let trusted_issuers_addr = app.api().addr_make("trusted_issers_addr");
+        let contract_addr =
+            instantiate_contract(&mut app, owner.clone(), trusted_issuers_addr.clone());
+
+        // Add identity
+        let msg = ExecuteMsg::AddIdentity {
+            country: "US".to_string(),
+        };
+        app.execute_contract(owner.clone(), contract_addr.clone(), &msg, &[])
+            .unwrap();
+
+        // Query the identity
+        let res: Identity = app
+            .wrap()
+            .query_wasm_smart(
+                contract_addr.clone(),
+                &QueryMsg::GetIdentity {
+                    identity_owner: owner.to_string(),
+                },
+            )
+            .unwrap();
+
+        assert_eq!(res.owner, owner);
+        assert_eq!(res.country, "US");
+        assert!(res.keys.is_empty());
+        assert!(res.claims.is_empty());
+    }
+
+    #[test]
+    fn test_query_all_keys_for_identity() {
+        let mut app = App::default();
+        let owner = app.api().addr_make("owner");
+        let trusted_issuers_addr = app.api().addr_make("trusted_issers_addr");
+        let contract_addr =
+            instantiate_contract(&mut app, owner.clone(), trusted_issuers_addr.clone());
+
+        // Add identity
+        let msg = ExecuteMsg::AddIdentity {
+            country: "US".to_string(),
+        };
+        app.execute_contract(owner.clone(), contract_addr.clone(), &msg, &[])
+            .unwrap();
+
+        // Add two keys
+        let external_wallet1 = app.api().addr_make("external_wallet1");
+        let external_wallet2 = app.api().addr_make("external_wallet2");
+
+        for wallet in [external_wallet1.clone(), external_wallet2.clone()] {
             let msg = ExecuteMsg::AddKey {
-                key_owner: owner.to_string(),
-                key_type: key_type.to_string(),
+                key_owner: wallet.to_string(),
+                key_type: "ExecutionKey".to_string(),
+                identity_owner: owner.to_string(),
             };
             app.execute_contract(owner.clone(), contract_addr.clone(), &msg, &[])
                 .unwrap();
-
-            // Query and verify the added key
-            let res: Key = app
-                .wrap()
-                .query_wasm_smart(
-                    contract_addr.clone(),
-                    &QueryMsg::GetKey {
-                        key_owner: owner.to_string(),
-                        key_type: key_type.to_string(),
-                    },
-                )
-                .unwrap();
-            assert_eq!(res.owner, owner);
-            assert_eq!(res.key_type, KeyType::from_str(key_type).unwrap());
         }
 
-        // Attempt to add a duplicate key
-        let msg = ExecuteMsg::AddKey {
-            key_owner: owner.to_string(),
-            key_type: "ManagementKey".to_string(),
-        };
-        let err = app
-            .execute_contract(owner.clone(), contract_addr.clone(), &msg, &[])
-            .unwrap_err();
-        assert!(err.to_string().contains("Error"));
-    }
-
-    #[test]
-    fn add_key_to_different_wallet() {
-        let mut app = App::default();
-        let owner = app.api().addr_make("owner");
-        let contract_addr = instantiate_contract(&mut app, owner.clone());
-
-        // Create a different wallet address
-        let different_wallet = app.api().addr_make("different_wallet");
-
-        // Add a key for the different wallet
-        let msg = ExecuteMsg::AddKey {
-            key_owner: different_wallet.to_string(),
-            key_type: "ExecutionKey".to_string(),
-        };
-        app.execute_contract(owner.clone(), contract_addr.clone(), &msg, &[])
-            .unwrap();
-
-        // Query the added key
-        let res: Key = app
+        // Query all keys
+        let res: Vec<Key> = app
             .wrap()
             .query_wasm_smart(
                 contract_addr.clone(),
-                &QueryMsg::GetKey {
-                    key_owner: different_wallet.to_string(),
-                    key_type: "ExecutionKey".to_string(),
+                &QueryMsg::GetAllKeysForIdentity {
+                    identity_owner: owner.to_string(),
                 },
             )
             .unwrap();
 
-        // Verify the key details
-        assert_eq!(res.owner, different_wallet);
-        assert_eq!(res.key_type, KeyType::ExecutionKey);
-
-        // Attempt to add another key with the different wallet (should fail)
-        let msg = ExecuteMsg::AddKey {
-            key_owner: owner.to_string(),
-            key_type: "ManagementKey".to_string(),
-        };
-        let err = app
-            .execute_contract(different_wallet.clone(), contract_addr.clone(), &msg, &[])
-            .unwrap_err();
-        assert!(err.to_string().contains("Error"));
-
-        // The owner should still be able to add keys
-        let msg = ExecuteMsg::AddKey {
-            key_owner: owner.to_string(),
-            key_type: "EncryptionKey".to_string(),
-        };
-        app.execute_contract(owner.clone(), contract_addr.clone(), &msg, &[])
-            .unwrap();
-
-        // Verify both keys exist
-        let res: Key = app
-            .wrap()
-            .query_wasm_smart(
-                contract_addr.clone(),
-                &QueryMsg::GetKey {
-                    key_owner: different_wallet.to_string(),
-                    key_type: "ExecutionKey".to_string(),
-                },
-            )
-            .unwrap();
-        assert_eq!(res.owner, different_wallet);
-        assert_eq!(res.key_type, KeyType::ExecutionKey);
-
-        let res: Key = app
-            .wrap()
-            .query_wasm_smart(
-                contract_addr.clone(),
-                &QueryMsg::GetKey {
-                    key_owner: owner.to_string(),
-                    key_type: "EncryptionKey".to_string(),
-                },
-            )
-            .unwrap();
-        assert_eq!(res.owner, owner);
-        assert_eq!(res.key_type, KeyType::EncryptionKey);
+        assert_eq!(res.len(), 2);
+        assert_eq!(res[0].owner, external_wallet1);
+        assert_eq!(res[0].key_type, KeyType::ExecutionKey);
+        assert_eq!(res[1].owner, external_wallet2);
+        assert_eq!(res[1].key_type, KeyType::ExecutionKey);
     }
 }

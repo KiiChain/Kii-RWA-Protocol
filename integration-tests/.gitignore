@@ -1,0 +1,4 @@
+.kiichain/
+.sei-chain/
+node_modules/
+package-lock.json

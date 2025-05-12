@@ -160,7 +160,7 @@ impl Votes {
 fn votes_needed(weight: u64, percentage: Decimal) -> u64 {
     let applied = Uint128::new(PRECISION_FACTOR * weight as u128).mul_floor(percentage);
     // Divide by PRECISION_FACTOR, rounding up to the nearest integer
-    ((applied.u128() + PRECISION_FACTOR - 1) / PRECISION_FACTOR) as u64
+    applied.u128().div_ceil(PRECISION_FACTOR) as u64
 }
 
 // we cast a ballot with our chosen vote and a given weight
