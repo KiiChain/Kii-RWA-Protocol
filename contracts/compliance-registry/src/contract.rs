@@ -103,7 +103,6 @@ pub mod execute {
     }
 
     /// Add a new compliance module for a token
-
     pub fn add_compliance_module(
         deps: DepsMut,
         token_address: Addr,
@@ -128,7 +127,6 @@ pub mod execute {
     }
 
     /// Remove a compliance module for a token
-
     pub fn remove_compliance_module(
         deps: DepsMut,
         token_address: Addr,
@@ -146,7 +144,6 @@ pub mod execute {
     }
 
     /// Update the active status of a compliance module
-
     pub fn update_compliance_module(
         deps: DepsMut,
         token_address: Addr,
@@ -196,7 +193,6 @@ pub mod query {
     use cosmwasm_std::{to_json_binary, Addr, QueryRequest, Uint128, WasmQuery};
 
     /// Check compliance for a token transfer
-
     pub fn check_compliance(
         deps: Deps,
         token_address: Addr,

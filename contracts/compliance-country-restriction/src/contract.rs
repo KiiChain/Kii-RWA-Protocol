@@ -106,7 +106,6 @@ pub mod execute {
     }
 
     /// Add country restriction for a token
-
     pub fn add_country_restriction(
         deps: DepsMut,
         token_address: Addr,
@@ -128,7 +127,6 @@ pub mod execute {
     }
 
     /// Remove country restriction for a token
-
     pub fn remove_country_restriction(
         deps: DepsMut,
         token_address: Addr,
@@ -143,7 +141,6 @@ pub mod execute {
     }
 
     /// Update the country restriction active status for a token
-
     pub fn update_country_restriction(
         deps: DepsMut,
         token_address: Addr,
