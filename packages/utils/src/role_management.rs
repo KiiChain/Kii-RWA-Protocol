@@ -14,7 +14,7 @@ impl RoleManagement {
     /// # Arguments
     ///
     /// * `namespace` - A string slice that holds the namespace for this instance.
-    ///                 This allows multiple contracts to use RoleManagement without conflicting storage.
+    ///   This allows multiple contracts to use RoleManagement without conflicting storage.
     ///
     /// # Returns
     ///
