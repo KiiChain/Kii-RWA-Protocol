@@ -266,7 +266,7 @@ mod tests {
 
     #[test]
     fn query_all_accounts_works() {
-        use utils::QueryMsg::CheckTokenCompliance;
+        use utils::compliance::QueryMsg::CheckTokenCompliance;
         let mut deps = mock_dependencies_with_balance(&coins(2, "token"));
 
         // insert order and lexicographical order are different
@@ -281,7 +281,7 @@ mod tests {
         // Mock the compliance query
         deps.querier.update_wasm(|query| match query {
             cosmwasm_std::WasmQuery::Smart { msg, .. } => {
-                let parsed: utils::QueryMsg = from_json(msg).unwrap();
+                let parsed: utils::compliance::QueryMsg = from_json(msg).unwrap();
                 match parsed {
                     CheckTokenCompliance {
                         token_address: _,

@@ -191,17 +191,17 @@ pub fn validate_accounts(accounts: &[Cw20Coin]) -> Result<(), ContractError> {
 
 pub fn validate_compliance(
     deps: Deps,
+    env: &Env,
     from: Option<Addr>,
     to: Option<Addr>,
     amount: Option<Uint128>,
 ) -> Result<(), ContractError> {
-    use utils::QueryMsg;
+    use utils::compliance::QueryMsg;
     // check compliance
-    let token_info = TOKEN_INFO.load(deps.storage)?;
     let compliance_address = COMPLIANCE_ADDRESS.load(deps.storage)?;
 
     let msg = QueryMsg::CheckTokenCompliance {
-        token_address: Addr::unchecked(token_info.name),
+        token_address: env.contract.address.clone(),
         from,
         to,
         amount,
@@ -272,7 +272,7 @@ pub fn execute(
 
 pub fn execute_transfer(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     info: MessageInfo,
     recipient: String,
     amount: Uint128,
@@ -282,6 +282,7 @@ pub fn execute_transfer(
     // add compliance check
     validate_compliance(
         deps.as_ref(),
+        &env,
         Some(info.sender.clone()),
         Some(rcpt_addr.clone()),
         Some(amount),
@@ -310,12 +311,18 @@ pub fn execute_transfer(
 
 pub fn execute_burn(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     info: MessageInfo,
     amount: Uint128,
 ) -> Result<Response, ContractError> {
     // add compliance check
-    validate_compliance(deps.as_ref(), Some(info.sender.clone()), None, Some(amount))?;
+    validate_compliance(
+        deps.as_ref(),
+        &env,
+        Some(info.sender.clone()),
+        None,
+        Some(amount),
+    )?;
 
     // lower balance
     BALANCES.update(
@@ -340,7 +347,7 @@ pub fn execute_burn(
 
 pub fn execute_mint(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     info: MessageInfo,
     recipient: String,
     amount: Uint128,
@@ -349,6 +356,7 @@ pub fn execute_mint(
     // add compliance check
     validate_compliance(
         deps.as_ref(),
+        &env,
         Some(info.sender.clone()),
         Some(rcpt_addr.clone()),
         Some(amount),
@@ -394,7 +402,7 @@ pub fn execute_mint(
 
 pub fn execute_send(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     info: MessageInfo,
     contract: String,
     amount: Uint128,
@@ -405,6 +413,7 @@ pub fn execute_send(
     // add compliance check
     validate_compliance(
         deps.as_ref(),
+        &env,
         Some(info.sender.clone()),
         Some(rcpt_addr.clone()),
         Some(amount),
@@ -676,7 +685,7 @@ mod tests {
 
     use super::*;
     use crate::msg::{InstantiateMarketingInfo, InstantiateTokenInfo, Registeries};
-    use utils::QueryMsg::CheckTokenCompliance;
+    use utils::compliance::QueryMsg::CheckTokenCompliance;
 
     fn get_balance<T: Into<String>>(deps: Deps, address: T) -> Uint128 {
         query_balance(deps, address.into()).unwrap().balance
@@ -977,7 +986,7 @@ mod tests {
         // Mock the compliance query
         deps.querier.update_wasm(|query| match query {
             cosmwasm_std::WasmQuery::Smart { msg, .. } => {
-                let parsed: utils::QueryMsg = from_json(msg).unwrap();
+                let parsed: utils::compliance::QueryMsg = from_json(msg).unwrap();
                 match parsed {
                     CheckTokenCompliance {
                         token_address: _,
@@ -1038,7 +1047,7 @@ mod tests {
         // Mock the compliance query
         deps.querier.update_wasm(|query| match query {
             cosmwasm_std::WasmQuery::Smart { msg, .. } => {
-                let parsed: utils::QueryMsg = from_json(msg).unwrap();
+                let parsed: utils::compliance::QueryMsg = from_json(msg).unwrap();
                 match parsed {
                     CheckTokenCompliance {
                         token_address: _,
@@ -1123,7 +1132,7 @@ mod tests {
         // Mock the compliance query
         deps.querier.update_wasm(|query| match query {
             cosmwasm_std::WasmQuery::Smart { msg, .. } => {
-                let parsed: utils::QueryMsg = from_json(msg).unwrap();
+                let parsed: utils::compliance::QueryMsg = from_json(msg).unwrap();
                 match parsed {
                     CheckTokenCompliance {
                         token_address: _,
@@ -1171,7 +1180,7 @@ mod tests {
         // Mock the compliance query
         deps.querier.update_wasm(|query| match query {
             cosmwasm_std::WasmQuery::Smart { msg, .. } => {
-                let parsed: utils::QueryMsg = from_json(msg).unwrap();
+                let parsed: utils::compliance::QueryMsg = from_json(msg).unwrap();
                 match parsed {
                     CheckTokenCompliance {
                         token_address: _,
@@ -1316,7 +1325,7 @@ mod tests {
         // Mock the compliance query
         deps.querier.update_wasm(|query| match query {
             cosmwasm_std::WasmQuery::Smart { msg, .. } => {
-                let parsed: utils::QueryMsg = from_json(msg).unwrap();
+                let parsed: utils::compliance::QueryMsg = from_json(msg).unwrap();
                 match parsed {
                     CheckTokenCompliance {
                         token_address: _,
@@ -1388,7 +1397,7 @@ mod tests {
         // Mock the compliance query
         deps.querier.update_wasm(|query| match query {
             cosmwasm_std::WasmQuery::Smart { msg, .. } => {
-                let parsed: utils::QueryMsg = from_json(msg).unwrap();
+                let parsed: utils::compliance::QueryMsg = from_json(msg).unwrap();
                 match parsed {
                     CheckTokenCompliance {
                         token_address: _,
@@ -1425,7 +1434,7 @@ mod tests {
         // Mock the compliance query
         deps.querier.update_wasm(|query| match query {
             cosmwasm_std::WasmQuery::Smart { msg, .. } => {
-                let parsed: utils::QueryMsg = from_json(msg).unwrap();
+                let parsed: utils::compliance::QueryMsg = from_json(msg).unwrap();
                 match parsed {
                     CheckTokenCompliance {
                         token_address: _,
@@ -1491,7 +1500,7 @@ mod tests {
         // Mock the compliance query
         deps.querier.update_wasm(|query| match query {
             cosmwasm_std::WasmQuery::Smart { msg, .. } => {
-                let parsed: utils::QueryMsg = from_json(msg).unwrap();
+                let parsed: utils::compliance::QueryMsg = from_json(msg).unwrap();
                 match parsed {
                     CheckTokenCompliance {
                         token_address: _,

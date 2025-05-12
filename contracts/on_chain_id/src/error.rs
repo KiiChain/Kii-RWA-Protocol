@@ -51,6 +51,9 @@ pub enum ContractError {
     #[error("Identity not found for owner: {owner}")]
     IdentityNotFound { owner: String },
 
+    #[error("Identity already exists for owner: {owner}")]
+    IdentityAlreadyExists { owner: String },
+
     #[error("Error loading {entity}: {reason}")]
     LoadError { entity: String, reason: String },
 
