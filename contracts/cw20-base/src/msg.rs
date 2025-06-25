@@ -29,12 +29,12 @@ pub struct InstantiateTokenInfo {
 #[cfg_attr(test, derive(Default))]
 pub struct InstantiateMsg {
     pub token_info: InstantiateTokenInfo,
-    pub registeries: Registeries,
+    pub registries: Registries,
 }
 
 #[cw_serde]
 #[derive(Default)]
-pub struct Registeries {
+pub struct Registries {
     pub compliance_address: String,
 }
 
@@ -143,7 +143,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn validate_instantiatemsg_name() {
+    fn validate_instantiate_msg_name() {
         // Too short
         let mut msg = InstantiateMsg {
             token_info: InstantiateTokenInfo {
@@ -164,7 +164,7 @@ mod tests {
     }
 
     #[test]
-    fn validate_instantiatemsg_symbol() {
+    fn validate_instantiate_msg_symbol() {
         // Too short
 
         let mut msg = InstantiateMsg {

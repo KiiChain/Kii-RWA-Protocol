@@ -14,8 +14,11 @@ Extends the CW20 standard with T-REX functionalities and implements permissioned
 
 #### Storage
 - `token_info`: TokenInfo
+  - Name, symbol, decimals, supply and minter(opt)
+  - Minter has an addr and can have a cap
 - `balances`: Map<Addr, Uint128>
 - `allowances`: Map<(Addr, Addr), AllowanceInfo>
+  - uint with an expiration date
 - `identity_registry`: Addr
 - `compliance`: Addr
 
@@ -27,6 +30,13 @@ Extends the CW20 standard with T-REX functionalities and implements permissioned
 - `transfer_from(owner: Addr, recipient: Addr, amount: Uint128) -> Result<Response>`
   - Description: Transfers tokens on behalf of the owner if the recipient is verified and compliant.
   - Interaction: Similar to `transfer`, but checks allowances first.
+
+- `send(contract: Addr, amount: Uint128, msg: Binary) -> Result<Response>`
+  - Msg is weird `Binary::from(r#"{"some":123}"#.as_bytes());`
+- `burn(amount: Uint128) -> Result<Response>`
+- `mint(contract: Addr, amount: Uint128) -> Result<Response>`
+- Increase/Decrease Allowance
+  - Can also change expiration
 
 #### Query
 - `balance(address: Addr) -> BalanceResponse`

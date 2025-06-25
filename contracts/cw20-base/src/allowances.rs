@@ -261,7 +261,7 @@ mod tests {
     use cw20::{Cw20Coin, TokenInfoResponse};
 
     use crate::contract::{execute, instantiate, query_balance, query_token_info};
-    use crate::msg::{ExecuteMsg, InstantiateMsg, InstantiateTokenInfo, Registeries};
+    use crate::msg::{ExecuteMsg, InstantiateMsg, InstantiateTokenInfo, Registries};
 
     fn get_balance<T: Into<String>>(deps: Deps, address: T) -> Uint128 {
         query_balance(deps, address.into()).unwrap().balance
@@ -285,7 +285,7 @@ mod tests {
                 mint: None,
                 marketing: None,
             },
-            registeries: Registeries {
+            registries: Registries {
                 compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
             },
         };
