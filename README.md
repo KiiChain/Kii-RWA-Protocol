@@ -102,21 +102,23 @@ Manages the list of trusted claim issuers.
 
 ### 5. Claim Topics Registry
 
-Stores the required claim topics for token eligibility.
+Stores the required claim topics for token eligibility. It is used for compliance. Only those with role ClaimRegistryManager can change this.
 
 #### Storage
-- `required_claim_topics`: Vec<u32>
+- `token_claim_topics`: Vec<u32>
+  - Token addresses are mapped to claims
+  - Claim is defined by a topic uint128 and an active bool
 
 #### Execute
 - `add_claim_topic(topic: u32) -> Result<Response>`
 - `remove_claim_topic(topic: u32) -> Result<Response>`
 
 #### Query
-- `get_required_claim_topics() -> GetRequiredClaimTopicsResponse`
+- `get_claims_for_token() -> StdResult<Vec<Uint128>>`
 
 ### 6. Modular Compliance
 
-Implements transfer restriction rules.
+Implements transfer restriction rules. Only compliance manager can execute changes. For now country compliance and claims compliance are the ones in use.
 
 #### Storage
 - `modules`: Vec<Addr>
