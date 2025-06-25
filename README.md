@@ -87,7 +87,7 @@ Stores the mapping of wallet addresses to identity contracts.
 
 ### 4. Trusted Issuers Registry
 
-Manages the list of trusted claim issuers.
+Manages the list of trusted claim issuers. OwnerRole::IssuersRegistryManager can change trusted issuers.
 
 #### Storage
 - `trusted_issuers`: Map<Addr, TrustedIssuer>
@@ -102,7 +102,7 @@ Manages the list of trusted claim issuers.
 
 ### 5. Claim Topics Registry
 
-Stores the required claim topics for token eligibility. It is used for compliance. Only those with role ClaimRegistryManager can change this.
+Stores the required claim topics for token eligibility. It is used for compliance. Only those with role OwnerRole::ClaimRegistryManager can change this.
 
 #### Storage
 - `token_claim_topics`: Vec<u32>
@@ -118,7 +118,7 @@ Stores the required claim topics for token eligibility. It is used for complianc
 
 ### 6. Modular Compliance
 
-Implements transfer restriction rules. Only compliance manager can execute changes. For now country compliance and claims compliance are the ones in use.
+Implements transfer restriction rules. Only OwnerRole::ComplianceManager can execute changes. For now country compliance and claims compliance are the ones in use.
 
 #### Storage
 - `modules`: Vec<Addr>
