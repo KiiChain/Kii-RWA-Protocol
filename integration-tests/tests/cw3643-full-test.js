@@ -3,12 +3,12 @@ const assert = require('assert');
 
 describe("CW3643 Token", function() {
     this.timeout(60000); // Increase timeout to 60 seconds for the entire test suite
-    
+
     let owner, ownerClient;
     let recipient, recipientClient;
     let issuer, issuerClient;
     let contracts = {};
-   
+
     before(async function() {
         ({ account: owner, client: ownerClient } = await setupWallet());
         ({ account: recipient, client: recipientClient } = await setupWallet());
@@ -17,10 +17,18 @@ describe("CW3643 Token", function() {
         // Deploy contracts in the correct order
         contracts.ownerRoles = await deployContract(ownerClient, owner.address, "owner_roles", { owner: owner.address });
         contracts.agentRoles = await deployContract(ownerClient, owner.address, "agent_roles", { owner: owner.address });
-        contracts.trustedIssuers = await deployContract(ownerClient, owner.address, "trusted_issuers", { owner_roles_address: contracts.ownerRoles.contractAddress });
-        contracts.claimTopics = await deployContract(ownerClient, owner.address, "claim_topics", { owner_roles_address: contracts.ownerRoles.contractAddress });
-        contracts.onChainId = await deployContract(ownerClient, owner.address, "on_chain_id", { owner: owner.address, trusted_issuer_addr: contracts.trustedIssuers.contractAddress });
-        contracts.complianceRegistry = await deployContract(ownerClient, owner.address, "compliance_registry", { owner_roles_address: contracts.ownerRoles.contractAddress });
+        contracts.trustedIssuers = await deployContract(ownerClient, owner.address, "trusted_issuers", {
+            owner_roles_address: contracts.ownerRoles.contractAddress
+        });
+        contracts.claimTopics = await deployContract(ownerClient, owner.address, "claim_topics", {
+            owner_roles_address: contracts.ownerRoles.contractAddress
+        });
+        contracts.onChainId = await deployContract(ownerClient, owner.address, "on_chain_id", { owner: owner.address,
+            trusted_issuer_addr: contracts.trustedIssuers.contractAddress
+        });
+        contracts.complianceRegistry = await deployContract(ownerClient, owner.address, "compliance_registry", {
+            owner_roles_address: contracts.ownerRoles.contractAddress,
+        });
         contracts.complianceClaims = await deployContract(ownerClient, owner.address, "compliance_claims", {
             identity_address: contracts.onChainId.contractAddress,
             owner_roles_address: contracts.ownerRoles.contractAddress,
@@ -254,7 +262,7 @@ describe("CW3643 Token", function() {
                     amount: null
                 }
             });
-            
+
             assert.strictEqual(response, true);  // Should be true because owner is still in CA
 
         });
@@ -268,7 +276,7 @@ describe("CW3643 Token", function() {
                     amount: null
                 }
             });
-            
+
             assert.strictEqual(response, true);  // Should be true because issuer is still in CA
 
         });
@@ -288,7 +296,7 @@ describe("CW3643 Token", function() {
 
         it("should add a compliance module", async function() {
             await executeContract(ownerClient, owner.address, contracts.complianceRegistry.contractAddress, {
-                add_compliance_module: { 
+                add_compliance_module: {
                     token_address: contracts.cw20Base.contractAddress,
                     module_address: contracts.complianceCountry.contractAddress,
                     module_name: "CountryRestrictionCompliance"
@@ -359,7 +367,7 @@ describe("CW3643 Token", function() {
 
         it("should fail transfer due to compliance check", async function() {
             const transferAmount = "1000";
-            
+
             // Get initial balance of recipient
             const initialBalance = await queryContract(ownerClient, contracts.cw20Base.contractAddress, {
                 balance: {
@@ -541,7 +549,7 @@ describe("CW3643 Token", function() {
 
         it("should remove compliance module", async function() {
             await executeContract(ownerClient, owner.address, contracts.complianceRegistry.contractAddress, {
-                remove_compliance_module: { 
+                remove_compliance_module: {
                     token_address: contracts.cw20Base.contractAddress,
                     module_address: contracts.complianceCountry.contractAddress
                 }
@@ -602,7 +610,7 @@ describe("CW3643 Token", function() {
             const existingClaimTopics = await queryContract(ownerClient, contracts.claimTopics.contractAddress, {
                 get_claims_for_token: { token_addr: contracts.cw20Base.contractAddress }
             });
-            
+
             for (const topic of existingClaimTopics) {
                 await executeContract(ownerClient, owner.address, contracts.claimTopics.contractAddress, {
                     remove_claim_topic_for_token: {
@@ -622,7 +630,7 @@ describe("CW3643 Token", function() {
 
             // Add compliance modules
             await executeContract(ownerClient, owner.address, contracts.complianceRegistry.contractAddress, {
-                add_compliance_module: { 
+                add_compliance_module: {
                     token_address: contracts.cw20Base.contractAddress,
                     module_address: contracts.complianceClaims.contractAddress,
                     module_name: "ClaimsCompliance"
@@ -630,7 +638,7 @@ describe("CW3643 Token", function() {
             });
 
             await executeContract(ownerClient, owner.address, contracts.complianceRegistry.contractAddress, {
-                add_compliance_module: { 
+                add_compliance_module: {
                     token_address: contracts.cw20Base.contractAddress,
                     module_address: contracts.complianceCountry.contractAddress,
                     module_name: "CountryRestrictionCompliance"
@@ -789,13 +797,13 @@ describe("CW3643 Token", function() {
         after(async function() {
             // Remove compliance modules
             await executeContract(ownerClient, owner.address, contracts.complianceRegistry.contractAddress, {
-                remove_compliance_module: { 
+                remove_compliance_module: {
                     token_address: contracts.cw20Base.contractAddress,
                     module_address: contracts.complianceCountry.contractAddress
                 }
             });
             await executeContract(ownerClient, owner.address, contracts.complianceRegistry.contractAddress, {
-                remove_compliance_module: { 
+                remove_compliance_module: {
                     token_address: contracts.cw20Base.contractAddress,
                     module_address: contracts.complianceClaims.contractAddress
                 }

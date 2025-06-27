@@ -89,7 +89,7 @@ mod tests {
     use cw20::{Cw20Coin, Expiration, TokenInfoResponse};
 
     use crate::contract::{execute, instantiate, query, query_token_info};
-    use crate::msg::{ExecuteMsg, InstantiateMsg, InstantiateTokenInfo, QueryMsg, Registeries};
+    use crate::msg::{ExecuteMsg, InstantiateMsg, InstantiateTokenInfo, QueryMsg, Registries};
 
     // this will set up the instantiation for other tests
     fn do_instantiate(mut deps: DepsMut, addr: &str, amount: Uint128) -> TokenInfoResponse {
@@ -105,7 +105,7 @@ mod tests {
                 mint: None,
                 marketing: None,
             },
-            registeries: Registeries {
+            registries: Registries {
                 compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
             },
         };
@@ -296,7 +296,7 @@ mod tests {
 
         do_instantiate(deps.as_mut(), &acct1, Uint128::new(12340000));
 
-        // put money everywhere (to create balanaces)
+        // put money everywhere (to create balances)
         let info = message_info(&Addr::unchecked(acct1.clone()), &[]);
         let env = mock_env();
         execute(
