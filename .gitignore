@@ -14,3 +14,9 @@
 # IDEs
 *.iml
 .idea
+
+# Artifacts from builds
+artifacts/
+
+# Python artifacts
+__pycache__/
