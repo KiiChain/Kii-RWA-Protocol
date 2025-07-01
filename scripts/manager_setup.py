@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import json
 import config
 from common import execute_contract, query_contract
 
@@ -41,7 +40,8 @@ if not has_issuers_registry_manager["data"]["is_owner"]:
     )
 
     print("Role created")
-print(f"Key {OWNER_KEY_NAME} is an issuers registry manager.")
+else:
+    print(f"Key {OWNER_KEY_NAME} is an issuers registry manager.")
 
 # Setup the claim registry manager
 has_claim_registry_manager = query_contract(
@@ -64,7 +64,8 @@ if not has_claim_registry_manager["data"]["is_owner"]:
     )
 
     print("Role created")
-print(f"Key {OWNER_KEY_NAME} is a claim registry manager.")
+else:
+    print(f"Key {OWNER_KEY_NAME} is a claim registry manager.")
 
 # Check if a address is a trusted issuer
 is_trusted_issuer = query_contract(
@@ -89,7 +90,8 @@ if not is_trusted_issuer["data"]:
     )
 
     print("Trusted issuer created")
-print (f"Key {TRUSTED_ISSUE_KEY_NAME} is a trusted issuer.")
+else:
+    print (f"Key {TRUSTED_ISSUE_KEY_NAME} is a trusted issuer.")
 
 # Add a claim topic to the CW20 token
 claim_topics_for_token = query_contract(
@@ -115,5 +117,6 @@ if len(claim_topics_for_token["data"]) == 0:
     )
 
     print("Claim topic added")
-print(f"Token {CONTRACTS['cw20_base_address']} has claim topics")
+else:
+    print(f"Token {CONTRACTS['cw20_base_address']} has claim topics")
 
