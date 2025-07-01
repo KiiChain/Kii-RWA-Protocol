@@ -2,13 +2,15 @@
 
 from common import instantiate_contract, store_contract
 
+import config
+
 #############################
 # Core Deployment Variables #
 #############################
 
 # Define the main variables for the deployment
-KEY_NAME = "rwa"
-KEY_ADDRESS = "kii1n5j3xtefjkhrq3x3kgtl8kf0tglpfh8nax7rqj"
+KEY_NAME = config.OWNER_KEY_NAME
+KEY_ADDRESS = config.OWNER_KEY_ADDRESS
 
 ############################
 # Contract Deployment Zone #

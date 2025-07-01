@@ -1,28 +1,18 @@
 #!/usr/bin/env python3
 
 import json
-
-from common import execute_contract, get_key_address, query_contract
+import config
+from common import execute_contract, query_contract
 
 #############################
-# Core Deployment Variables #
+# Import Core Variables #
 #############################
 
-TRUSTED_ISSUE_KEY_NAME = "trusted_issuer"
-TRUSTED_ISSUE_KEY_ADDRESS = get_key_address(TRUSTED_ISSUE_KEY_NAME)
-OWNER_KEY_NAME = "rwa"
-OWNER_KEY_ADDRESS = get_key_address(OWNER_KEY_NAME)
-CONTRACTS = {
-    "owner_roles_address": "kii1hez8n9mnljtca28xrg4a54p4cdharlsg0vku0008ng64ldgfapdqsqctag",
-    "agent_roles_address": "kii14tzdqsgsdfcgxy0zu2vqcaj347lv5xpelpadusrspnkxddc53fhq9vc0h8",
-    "trusted_issuers_address": "kii17xsl3q2p3elhh747r3ttn08j2p95jsd3c7rfmuc5rws5a20u9kqqrrx0nd",
-    "claim_topics_address": "kii17k6uthn6ymd3ta25glx6qpa2sfz2hkt5a22lynzdm7xgk7kklckqc4gytm",
-    "on_chain_id_address": "kii1y8s38zn7ry7xc95ej2z08eq520y4v9qdsysfgkfwelhh635e4t2qq8xxp5",
-    "compliance_registry_address": "kii1dpws8lmu2l4awdau6zhezxm97tshu427aulr2xwp7uarpd8jqu7srjz2gm",
-    "compliance_claims_address": "kii12n3frtnx8mh2vpvzk7mqkr6yqkfe77339c7uakzqqa4pv46zdr9qt020h3",
-    "compliance_country_restriction_address": "kii1k4j6gr75k23tvqjdw9zvtrdxh7pxtexy5pdk7xjmwf385msx75fsz470kz",
-    "cw20_base_address": "kii1zvjy36ysunq56dhgyxggp5gwrymxjs95twj5lgcpqujftppn739s83aym4",
-}
+TRUSTED_ISSUE_KEY_NAME = config.TRUSTED_ISSUE_KEY_NAME
+TRUSTED_ISSUE_KEY_ADDRESS = config.TRUSTED_ISSUE_KEY_ADDRESS
+OWNER_KEY_NAME = config.OWNER_KEY_NAME
+OWNER_KEY_ADDRESS = config.OWNER_KEY_ADDRESS
+CONTRACTS = config.CONTRACTS
 
 ########
 # Call #
