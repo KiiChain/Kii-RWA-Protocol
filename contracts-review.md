@@ -107,7 +107,6 @@ pub enum KeyType {
 - Holds token address <> topic association
 - Claims are a topic + active bool
 - ClaimRegistryManager can change topics
-- Something feels off, I didn't find out how to link a claim with an user
   - `I didn't quite get this`
 
 # CW20 base
@@ -134,3 +133,87 @@ Full info: https://github.com/CosmWasm/cw-plus/blob/main/packages/cw20/README.md
 - Missing Executes of CW20
   - Just checked instantiate
 - Usage test
+
+
+# Flows
+A tool centralizes txs of the tokens
+
+We need to understand how to do these flows
+## Deploy
+Owner can issue a pool
+- Pool is a trusted issuers
+ - Can receive sells and send out buys
+## Register KYC
+## Buy
+- Users enters a website
+- They got through a KYC
+- To buy they will go through a DEX
+  - A liquidity pool that is trusted
+  - Both the pool and the buyer will need to have a topic level that matches one for the tokens
+## Sell
+- Goes from pool to buyer
+
+## Questions
+- how do we buy/sell assets into this?
+
+
+# Enzo's experiences
+## Economic rights
+- Can hold the token but other person can claim things for you
+
+## Swap place
+- Listing and minting
+- Swap: Takes best price and match
+- Listing: lists sell/buys
+
+## Proof of reserve
+- Users can ask for proof of reserves
+- Contracts have restrictions
+  - Tokens needs to have a link to the rights
+- We, as holders, need to have custody and proof of it
+  - Else we can be sued
+
+## Living on the chain
+- If you move to another chain, it will lose it's value
+  - No longer tied in the contracts
+- If they hold a copy, then it will just be mirrored
+  - Would need to be copied
+
+## Money Laundry
+- Compliance should have a way to deal with possible MLs
+
+## What does plume do?
+- https://plume.org/
+
+
+# Current Direction
+1. Deploy RWA contracts
+2. Deploy astroport environment (DEX contracts)
+3. Deploy preparations for RWA
+4. Create trusted issuer
+  - Backend connects issuers to claims
+5. Create a pool between the RWA token and MockUSDT
+  - Need to check if Mock usdt (it is an ERC20 and needs to be native to the chain)
+  - Pool needs to be a trusted issuer
+6. Users should be able to claim
+  - Go to RWA page
+  - Can see tokens but not buy
+  - Sign up KYC to become trusted
+  - Can do swaps
+
+Notes
+- We will need to interact via cosmwasm precompile
+- [Astroport](https://astroport.fi/) has a lot of flexibility on tokens used
+- This is a direction, we need to make a proper plan in the future
+
+## Problems
+- Only Cosmos addresses are valid via compliance?
+  - How can we add EVM users to that? Will EVM work out the bat
+  - Wrap the cosm?
+    - If this gets out of these contracts, it loses compliance
+- Swap can only be done between two trusted issuers
+  - Do we want swap?
+- New assets are done by hand
+- CW20 contract is not enforcing roles correctly
+- No mention to yield, distribution and so on
+- Are allowances ok?
