@@ -4,8 +4,7 @@ from common import get_key_address
 # Core Deployment Variables #
 #############################
 
-TRUSTED_ISSUE_KEY_NAME = "trusted_issuer"
-TRUSTED_ISSUE_KEY_ADDRESS = get_key_address(TRUSTED_ISSUE_KEY_NAME)
+# Deployment
 OWNER_KEY_NAME = "rwa"
 OWNER_KEY_ADDRESS = get_key_address(OWNER_KEY_NAME)
 CONTRACTS = {
@@ -19,3 +18,11 @@ CONTRACTS = {
     "compliance_country_restriction_address": "kii1k4j6gr75k23tvqjdw9zvtrdxh7pxtexy5pdk7xjmwf385msx75fsz470kz",
     "cw20_base_address": "kii1zvjy36ysunq56dhgyxggp5gwrymxjs95twj5lgcpqujftppn739s83aym4",
 }
+
+# Management
+TRUSTED_ISSUE_KEY_NAME = "trusted_issuer"
+TRUSTED_ISSUE_KEY_ADDRESS = get_key_address(TRUSTED_ISSUE_KEY_NAME)
+
+# User Variables
+USER_KEY_NAME = "user1" # Can be any address but needs some funds for fees
+USER_KEY_ADDRESS = get_key_address(USER_KEY_NAME)
