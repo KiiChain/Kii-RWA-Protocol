@@ -4,6 +4,8 @@ import config
 import sys
 from common import execute_contract, get_key_address, query_contract
 
+# User and trusted issuer needs to have balance in account
+
 #############################
 # Import Core Variables #
 #############################
