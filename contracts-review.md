@@ -217,3 +217,4 @@ Notes
 - CW20 contract is not enforcing roles correctly
 - No mention to yield, distribution and so on
 - Are allowances ok?
+- Compliance registry has no method to list compliances
