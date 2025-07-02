@@ -8,6 +8,7 @@ import requests
 # Core Deployment Variables #
 #############################
 
+KIICHAIN = "kiichaind"
 RPC_URL = "https://rpc.uno.sentry.testnet.v3.kiivalidator.com"
 LCD_NODE = "https://lcd.uno.sentry.testnet.v3.kiivalidator.com"
 CHAIN_ID = "oro_1336-1"
@@ -41,7 +42,7 @@ def run_cmd(cmd):
 # Get the key address from the key name
 def get_key_address(key_name):
     # Build the command to get the key address
-    cmd = ["kiichaind", "keys", "show", key_name, "--output", "json"]
+    cmd = [KIICHAIN, "keys", "show", key_name, "--output", "json"]
 
     # Run the command
     result, err = run_cmd(cmd)
@@ -82,7 +83,7 @@ def check_tx_until_result(tx_hash):
 # Store contract stores a contract and return the TX hash
 def store_contract(path, from_key):
     # Build the cmd for deploying the contract
-    cmd = ["kiichaind", "tx", "wasm", "store", path, "--from", from_key] + TXFLAG
+    cmd = [KIICHAIN, "tx", "wasm", "store", path, "--from", from_key] + TXFLAG
 
     # Run the command to store the contract
     result, err = run_cmd(cmd)
@@ -118,7 +119,7 @@ def instantiate_contract(code_id, init_msg, label, from_key):
 
     # Build the cmd for instantiating the contract
     cmd = [
-        "kiichaind",
+        KIICHAIN,
         "tx",
         "wasm",
         "instantiate",
@@ -163,7 +164,7 @@ def instantiate_contract(code_id, init_msg, label, from_key):
 def execute_contract(contract_address, msg, from_key):
     # Build the command to execute the contract
     cmd = [
-        "kiichaind",
+        KIICHAIN,
         "tx",
         "wasm",
         "execute",
@@ -193,7 +194,7 @@ def execute_contract(contract_address, msg, from_key):
 def query_contract(contract_address, query_msg):
     # Build the command to query the contract
     cmd = [
-        "kiichaind",
+        KIICHAIN,
         "query",
         "wasm",
         "contract-state",
