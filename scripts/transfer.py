@@ -31,11 +31,11 @@ def transfer(sender, receiver, quantity):
 ########
 # Call #
 ########
-
-if len(sys.argv) > 3:
-    sender = sys.argv[1]
-    receiver = sys.argv[2]
-    quantity = sys.argv[3]
-    transfer(sender, receiver, quantity)
-else:
-    print("Usage: ./transfer sender_key_name receiver_key_name quantity")
+if __name__== "__main__":
+  if len(sys.argv) > 3:
+      sender = sys.argv[1]
+      receiver = sys.argv[2]
+      quantity = sys.argv[3]
+      transfer(sender, receiver, quantity)
+  else:
+      print("Usage: ./transfer sender_key_name receiver_key_name quantity")

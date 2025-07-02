@@ -51,12 +51,12 @@ def add_compliance_to_token(token_address):
 ########
 # Call #
 ########
-
-if len(sys.argv) > 1:
-    token_address = sys.argv[1]
-    print(f"Setting up compliance for token: {token_address}")
-    add_compliance_to_token(token_address)
-else:
-    token_address = CONTRACTS["cw20_base_address"]
-    print(f"Assuming usage of default token address: {token_address}")
-    add_compliance_to_token(token_address)
+if __name__== "__main__":
+  if len(sys.argv) > 1:
+      token_address = sys.argv[1]
+      print(f"Setting up compliance for token: {token_address}")
+      add_compliance_to_token(token_address)
+  else:
+      token_address = CONTRACTS["cw20_base_address"]
+      print(f"Assuming usage of default token address: {token_address}")
+      add_compliance_to_token(token_address)
