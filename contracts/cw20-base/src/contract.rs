@@ -126,9 +126,7 @@ pub fn instantiate(
         total_supply,
         mint,
     };
-    let compliance_addr = deps
-        .api
-        .addr_validate(&msg.registries.compliance_address)?;
+    let compliance_addr = deps.api.addr_validate(&msg.registries.compliance_address)?;
     COMPLIANCE_ADDRESS.save(deps.storage, &compliance_addr)?;
 
     TOKEN_INFO.save(deps.storage, &data)?;
