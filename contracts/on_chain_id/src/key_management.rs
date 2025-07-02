@@ -27,7 +27,7 @@ pub fn execute_add_key(
         &identity_owner_addr,
     )
     .map_err(|e| ContractError::Unauthorized {
-        reason: format!("Sender lacks ManagementKey: {}", e),
+        reason: format!("Sender lacks ManagementKey: {e}"),
     })?;
 
     let addr_key_owner = deps.api.addr_validate(&key_owner)?;
@@ -89,7 +89,7 @@ pub fn execute_remove_key(
         &identity_owner_addr,
     )
     .map_err(|e| ContractError::Unauthorized {
-        reason: format!("Sender lacks ManagementKey: {}", e),
+        reason: format!("Sender lacks ManagementKey: {e}"),
     })?;
 
     let addr_key_owner = deps.api.addr_validate(&key_owner)?;

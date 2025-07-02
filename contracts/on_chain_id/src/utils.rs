@@ -31,7 +31,7 @@ pub fn check_key_authorization(
         Ok(())
     } else {
         Err(ContractError::Unauthorized {
-            reason: format!("Sender lacks required key type: {:?}", required_key),
+            reason: format!("Sender lacks required key type: {required_key:?}"),
         })
     }
 }

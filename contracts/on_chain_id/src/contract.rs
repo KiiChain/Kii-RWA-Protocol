@@ -28,17 +28,14 @@ pub fn instantiate(
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION).map_err(|e| {
-        ContractError::Std(StdError::generic_err(format!(
-            "Failed to set contract version: {}",
-            e
-        )))
+        ContractError::Std(StdError::generic_err(format!("Failed to set contract version: {e}")))
     })?;
 
     let owner = deps
         .api
         .addr_validate(&msg.owner)
         .map_err(|e| ContractError::InvalidAddress {
-            reason: format!("Invalid owner address: {}", e),
+            reason: format!("Invalid owner address: {e}"),
         })?;
 
     // Save the owner
@@ -53,7 +50,7 @@ pub fn instantiate(
         .api
         .addr_validate(&msg.trusted_issuer_addr)
         .map_err(|e| ContractError::InvalidAddress {
-            reason: format!("Invalid trusted issuer address: {}", e),
+            reason: format!("Invalid trusted issuer address: {e}"),
         })?;
 
     // Save the trusted issuers address
@@ -186,8 +183,7 @@ fn query_key(
         .cloned()
         .ok_or_else(|| {
             StdError::not_found(format!(
-                "Key not found for owner {} and type {:?} in identity {}",
-                key_owner, key_type, identity_owner
+                "Key not found for owner {key_owner} and type {key_type:?} in identity {identity_owner}"
             ))
         })
 }
