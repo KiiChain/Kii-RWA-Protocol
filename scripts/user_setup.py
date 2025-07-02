@@ -31,11 +31,8 @@ def setup_user(user_name):
     )
     print(f"Key {USER_KEY_NAME} has an identity.")
   except:
-    print(
-        f"Key {USER_KEY_NAME} has no identity. Creating a new Brazilian identity..."
-    )
-
     # Create a new identity for the owner
+    print(f"Key {USER_KEY_NAME} has no identity. Creating a new Brazilian identity...")
     execute_contract(
         CONTRACTS["on_chain_id_address"],
         {
@@ -45,7 +42,6 @@ def setup_user(user_name):
         },
         USER_KEY_NAME,
     )
-
     print("Identity created")
 
   # 2. User gives permission for trusted issuer to add claims
@@ -61,11 +57,8 @@ def setup_user(user_name):
     )
     print(f"Key {TRUSTED_ISSUER_KEY_NAME} has permission to add claims to key {USER_KEY_NAME}.")
   except:
-    print(
-        f"Key {TRUSTED_ISSUER_KEY_NAME} has no permission to add claims to key {USER_KEY_NAME}. Adding permission..."
-    )
-
     # Give permission to trusted issuer to add claims
+    print(f"Key {TRUSTED_ISSUER_KEY_NAME} has no permission to add claims to key {USER_KEY_NAME}. Adding permission...")
     execute_contract(
         CONTRACTS["on_chain_id_address"],
         {
@@ -77,7 +70,6 @@ def setup_user(user_name):
         },
         USER_KEY_ADDRESS,
     )
-
     print("Permission created")
 
   # 3. Trusted issuer creates a claim for the user
@@ -92,11 +84,8 @@ def setup_user(user_name):
     )
     print(f"Key {USER_KEY_NAME} has claim to topic 1.")
   except:
-    print(
-        f"Key {USER_KEY_NAME} has no claims to topic 1. Adding claim..."
-    )
-
     # Give permission to trusted issuer to add claims
+    print(f"Key {USER_KEY_NAME} has no claims to topic 1. Adding claim...")
     execute_contract(
         CONTRACTS["on_chain_id_address"],
         {
@@ -110,7 +99,6 @@ def setup_user(user_name):
         },
         TRUSTED_ISSUER_KEY_NAME,
     )
-
     print("Claim created")
 
 ########
