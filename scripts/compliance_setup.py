@@ -19,11 +19,7 @@ CONTRACTS = config.CONTRACTS
 def add_compliance_to_token(token_address):
     # For now we add the compliances we have to the registry we have
     # Claims compliance
-    print(
-        f"Adding claim compliance to token {token_address}..."
-    )
-
-    # Create a new identity for the owner
+    print(f"Adding claim compliance to token {token_address}...")
     execute_contract(
         CONTRACTS["compliance_registry_address"],
         {
@@ -35,15 +31,10 @@ def add_compliance_to_token(token_address):
         },
         OWNER_KEY_NAME,
     )
-
     print("Claim compliance added")
 
     # Country compliance
-    print(
-        f"Adding country compliance to token {token_address}..."
-    )
-
-    # Create a new identity for the owner
+    print(f"Adding country compliance to token {token_address}...")
     execute_contract(
         CONTRACTS["compliance_registry_address"],
         {
@@ -55,7 +46,6 @@ def add_compliance_to_token(token_address):
         },
         OWNER_KEY_NAME,
     )
-
     print("Country compliance added")
 
 ########
