@@ -7,8 +7,8 @@ from common import execute_contract, query_contract
 # Import Core Variables #
 #############################
 
-TRUSTED_ISSUE_KEY_NAME = config.TRUSTED_ISSUE_KEY_NAME
-TRUSTED_ISSUE_KEY_ADDRESS = config.TRUSTED_ISSUE_KEY_ADDRESS
+TRUSTED_ISSUER_KEY_NAME = config.TRUSTED_ISSUER_KEY_NAME
+TRUSTED_ISSUER_KEY_ADDRESS = config.TRUSTED_ISSUER_KEY_ADDRESS
 OWNER_KEY_NAME = config.OWNER_KEY_NAME
 OWNER_KEY_ADDRESS = config.OWNER_KEY_ADDRESS
 CONTRACTS = config.CONTRACTS
@@ -70,11 +70,11 @@ else:
 # Check if a address is a trusted issuer
 is_trusted_issuer = query_contract(
     CONTRACTS["trusted_issuers_address"],
-    {"is_trusted_issuer": {"issuer": TRUSTED_ISSUE_KEY_ADDRESS}},
+    {"is_trusted_issuer": {"issuer": TRUSTED_ISSUER_KEY_ADDRESS}},
 )
 if not is_trusted_issuer["data"]:
     print(
-        f"Key {TRUSTED_ISSUE_KEY_NAME} is not a trusted issuer. Creating a new trusted issuer..."
+        f"Key {TRUSTED_ISSUER_KEY_NAME} is not a trusted issuer. Creating a new trusted issuer..."
     )
 
     # Create a new trusted issuer
@@ -82,7 +82,7 @@ if not is_trusted_issuer["data"]:
         CONTRACTS["trusted_issuers_address"],
         {
             "add_trusted_issuer": {
-                "issuer": TRUSTED_ISSUE_KEY_ADDRESS,
+                "issuer": TRUSTED_ISSUER_KEY_ADDRESS,
                 "claim_topics": ["1"],
             }
         },
@@ -91,7 +91,7 @@ if not is_trusted_issuer["data"]:
 
     print("Trusted issuer created")
 else:
-    print (f"Key {TRUSTED_ISSUE_KEY_NAME} is a trusted issuer.")
+    print (f"Key {TRUSTED_ISSUER_KEY_NAME} is a trusted issuer.")
 
 # Add a claim topic to the CW20 token
 claim_topics_for_token = query_contract(
