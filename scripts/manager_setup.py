@@ -120,3 +120,27 @@ if len(claim_topics_for_token["data"]) == 0:
 else:
     print(f"Token {CONTRACTS['cw20_base_address']} has claim topics")
 
+# Add identity to trusted issuer
+try:
+  has_identity = query_contract(
+      CONTRACTS["on_chain_id_address"],
+      {"get_identity": {"identity_owner": TRUSTED_ISSUER_KEY_ADDRESS}},
+  )
+  print(f"Key {TRUSTED_ISSUER_KEY_NAME} has an identity.")
+except:
+  print(
+      f"Key {TRUSTED_ISSUER_KEY_NAME} has no identity. Creating a new Brazilian identity..."
+  )
+
+  # Create a new identity for the owner
+  res = execute_contract(
+      CONTRACTS["on_chain_id_address"],
+      {
+          "add_identity": {
+              "country": "BR"
+          }
+      },
+      TRUSTED_ISSUER_KEY_NAME,
+  )
+
+  print("Identity created")
