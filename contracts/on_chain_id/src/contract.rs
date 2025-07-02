@@ -28,7 +28,9 @@ pub fn instantiate(
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION).map_err(|e| {
-        ContractError::Std(StdError::generic_err(format!("Failed to set contract version: {e}")))
+        ContractError::Std(StdError::generic_err(format!(
+            "Failed to set contract version: {e}"
+        )))
     })?;
 
     let owner = deps
