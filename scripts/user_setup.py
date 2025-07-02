@@ -74,16 +74,14 @@ def setup_user(user_name):
 
   # 3. Trusted issuer creates a claim for the user
   # Check if claim already exists
-  try:
-    has_claim = query_contract(
-        CONTRACTS["on_chain_id_address"],
-        {"verify_claim": {
-            "claim_id": "1",
-            "identity_owner": USER_KEY_ADDRESS
-            }},
-    )
-    print(f"Key {USER_KEY_NAME} has claim to topic 1.")
-  except:
+  has_claim = query_contract(
+      CONTRACTS["on_chain_id_address"],
+      {"verify_claim": {
+          "claim_id": "1",
+          "identity_owner": USER_KEY_ADDRESS
+          }},
+  )
+  if not has_claim["data"]:
     # Give permission to trusted issuer to add claims
     print(f"Key {USER_KEY_NAME} has no claims to topic 1. Adding claim...")
     execute_contract(
@@ -91,8 +89,10 @@ def setup_user(user_name):
         {
             "add_claim": {
                 "claim" : {
-                  "token_addr": CONTRACTS["cw20_base_address"],
-                  "topic": "1"
+                  "topic": "1",
+                  "issuer": TRUSTED_ISSUER_KEY_ADDRESS,
+                  "data": "",
+                  "uri": ""
                 },
                 "identity_owner": USER_KEY_ADDRESS
             }
@@ -100,6 +100,8 @@ def setup_user(user_name):
         TRUSTED_ISSUER_KEY_NAME,
     )
     print("Claim created")
+  else:
+    print(f"Key {USER_KEY_NAME} has claim to topic 1.")
 
 ########
 # Call #
