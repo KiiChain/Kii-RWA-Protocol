@@ -20,9 +20,5 @@ CONTRACTS = {
 }
 
 # Management
-TRUSTED_ISSUE_KEY_NAME = "trusted_issuer"
-TRUSTED_ISSUE_KEY_ADDRESS = get_key_address(TRUSTED_ISSUE_KEY_NAME)
-
-# User Variables
-USER_KEY_NAME = "user1" # Can be any address but needs some funds for fees
-USER_KEY_ADDRESS = get_key_address(USER_KEY_NAME)
+TRUSTED_ISSUER_KEY_NAME = "trusted_issuer"
+TRUSTED_ISSUER_KEY_ADDRESS = get_key_address(TRUSTED_ISSUER_KEY_NAME)
