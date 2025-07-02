@@ -2,7 +2,7 @@
 
 import config
 import sys
-from common import execute_contract, get_key_address, query_contract
+from common import execute_contract, get_key_address, query_contract, query_contract_fail_with
 
 # User and trusted issuer needs to have balance in account
 
@@ -24,13 +24,12 @@ def setup_user(user_name):
 
   # 1. User creates own identity
   # Checks if identity exists
-  try:
-    has_identity = query_contract(
-        CONTRACTS["on_chain_id_address"],
-        {"get_identity": {"identity_owner": USER_KEY_ADDRESS}},
-    )
-    print(f"Key {USER_KEY_NAME} has an identity.")
-  except:
+  _, inexistent = query_contract_fail_with(
+      CONTRACTS["on_chain_id_address"],
+      {"get_identity": {"identity_owner": USER_KEY_ADDRESS}},
+      "not found: query wasm contract failed"
+  )
+  if inexistent:
     # Create a new identity for the owner
     print(f"Key {USER_KEY_NAME} has no identity. Creating a new Brazilian identity...")
     execute_contract(
@@ -43,20 +42,21 @@ def setup_user(user_name):
         USER_KEY_NAME,
     )
     print("Identity created")
+  else:
+    print(f"Key {USER_KEY_NAME} has an identity.")
 
   # 2. User gives permission for trusted issuer to add claims
   # Check if permission already exists
-  try:
-    issuer_has_claim_signer = query_contract(
-      CONTRACTS["on_chain_id_address"],
-      {"get_key": {
-          "key_owner": TRUSTED_ISSUER_KEY_ADDRESS,
-          "key_type" : "ClaimSignerKey",
-          "identity_owner": USER_KEY_ADDRESS
-          }},
-    )
-    print(f"Key {TRUSTED_ISSUER_KEY_NAME} has permission to add claims to key {USER_KEY_NAME}.")
-  except:
+  _, inexistent = query_contract_fail_with(
+    CONTRACTS["on_chain_id_address"],
+    {"get_key": {
+        "key_owner": TRUSTED_ISSUER_KEY_ADDRESS,
+        "key_type" : "ClaimSignerKey",
+        "identity_owner": USER_KEY_ADDRESS
+        }},
+    "Key not found for owner"
+  )
+  if inexistent:
     # Give permission to trusted issuer to add claims
     print(f"Key {TRUSTED_ISSUER_KEY_NAME} has no permission to add claims to key {USER_KEY_NAME}. Adding permission...")
     execute_contract(
@@ -71,6 +71,8 @@ def setup_user(user_name):
         USER_KEY_ADDRESS,
     )
     print("Permission created")
+  else:
+    print(f"Key {TRUSTED_ISSUER_KEY_NAME} has permission to add claims to key {USER_KEY_NAME}.")
 
   # 3. Trusted issuer creates a claim for the user
   # Check if claim already exists

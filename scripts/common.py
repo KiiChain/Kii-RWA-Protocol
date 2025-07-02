@@ -212,3 +212,27 @@ def query_contract(contract_address, query_msg):
 
     # Parse and return the result
     return json.loads(result)
+
+def query_contract_fail_with(contract_address, query_msg, expected_err):
+    # Build the command to query the contract
+    cmd = [
+        KIICHAIN,
+        "query",
+        "wasm",
+        "contract-state",
+        "smart",
+        contract_address,
+        json.dumps(query_msg),
+        "--node", RPC_URL,
+        "-o", "json"
+    ]
+
+    # Run the command
+    result, err = run_cmd(cmd)
+    if err:
+        if expected_err not in err:
+          raise Exception(f"Contract failed with unexpected error: {err}")
+        return result, True
+
+    # Parse and return the result
+    return result, False

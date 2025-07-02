@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import config
-from common import execute_contract, query_contract
+from common import execute_contract, query_contract, query_contract_fail_with
 
 #############################
 # Import Core Variables #
@@ -145,13 +145,13 @@ else:
     print(f"Token {CONTRACTS['cw20_base_address']} has claim topics")
 
 # Add identity to trusted issuer
-try:
-  has_identity = query_contract(
+
+_, inexistent = query_contract_fail_with(
       CONTRACTS["on_chain_id_address"],
       {"get_identity": {"identity_owner": TRUSTED_ISSUER_KEY_ADDRESS}},
+      "not found: query wasm contract failed"
   )
-  print(f"Key {TRUSTED_ISSUER_KEY_NAME} has an identity.")
-except:
+if inexistent:
   print(
       f"Key {TRUSTED_ISSUER_KEY_NAME} has no identity. Creating a new Brazilian identity..."
   )
@@ -168,3 +168,5 @@ except:
   )
 
   print("Identity created")
+else:
+  print(f"Key {TRUSTED_ISSUER_KEY_NAME} has an identity.")
