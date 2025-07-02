@@ -25,14 +25,14 @@ def balance_of(token_address, user_key):
 ########
 # Call #
 ########
-
-if len(sys.argv) > 2:
-    user_key = sys.argv[1]
-    token_address = sys.argv[2]
-    balance_of(token_address, user_key)
-elif len(sys.argv) > 1:
-    user_key = sys.argv[1]
-    print("Assuming usage of default contract")
-    balance_of(CONTRACTS["cw20_base_address"], user_key)
-else:
-    print("Usage: ./balance user_key [token_address]")
+if __name__== "__main__":
+  if len(sys.argv) > 2:
+      user_key = sys.argv[1]
+      token_address = sys.argv[2]
+      balance_of(token_address, user_key)
+  elif len(sys.argv) > 1:
+      user_key = sys.argv[1]
+      print("Assuming usage of default contract")
+      balance_of(CONTRACTS["cw20_base_address"], user_key)
+  else:
+      print("Usage: ./balance user_key [token_address]")
