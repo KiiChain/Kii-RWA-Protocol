@@ -20,7 +20,7 @@ def transfer(sender, receiver, quantity):
         CONTRACTS["cw20_base_address"],
         {
             "transfer": {
-                "recipient" : get_key_address(sender),
+                "recipient" : get_key_address(receiver),
                 "amount": quantity
             }
         },
