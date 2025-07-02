@@ -243,7 +243,7 @@ pub mod execute {
             .add_message(msg)
             .add_attribute("action", "add_trusted_issuer")
             .add_attribute("issuer", issuer.to_string())
-            .add_attribute("claim_topics", format!("{:?}", claim_topics)))
+            .add_attribute("claim_topics", format!("{claim_topics:?}")))
     }
 
     pub fn remove_trusted_issuer(
@@ -367,7 +367,7 @@ pub mod execute {
             .add_message(msg)
             .add_attribute("action", "update_issuer_claim_topics")
             .add_attribute("issuer", issuer.to_string())
-            .add_attribute("claim_topics", format!("{:?}", claim_topics)))
+            .add_attribute("claim_topics", format!("{claim_topics:?}")))
     }
 }
 
@@ -877,7 +877,7 @@ mod tests {
             vec![
                 attr("action", "add_trusted_issuer"),
                 attr("issuer", new_issuer.to_string()),
-                attr("claim_topics", format!("{:?}", claim_topics)),
+                attr("claim_topics", format!("{claim_topics:?}")),
             ]
         );
     }
@@ -988,7 +988,7 @@ mod tests {
             vec![
                 attr("action", "update_issuer_claim_topics"),
                 attr("issuer", issuer_to_update.to_string()),
-                attr("claim_topics", format!("{:?}", new_claim_topics)),
+                attr("claim_topics", format!("{new_claim_topics:?}")),
             ]
         );
     }

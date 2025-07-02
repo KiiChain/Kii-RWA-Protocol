@@ -27,7 +27,7 @@ pub fn execute_add_claim(
 
     if !is_trusted {
         return Err(ContractError::Unauthorized {
-            reason: "Sender does not have persmission to add claim".to_string(),
+            reason: "Sender does not have permission to add claim".to_string(),
         });
     }
 

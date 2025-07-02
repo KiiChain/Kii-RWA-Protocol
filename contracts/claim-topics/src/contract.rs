@@ -27,7 +27,7 @@ pub fn instantiate(
         .api
         .addr_validate(msg.owner_roles_address.as_ref())
         .map_err(|e| ContractError::InvalidAddress {
-            reason: format!("Invalid owner address: {}", e),
+            reason: format!("Invalid owner address: {e}"),
         })?;
 
     OWNER_ROLES_ADDRESS.save(deps.storage, &owner_addr)?;

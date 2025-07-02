@@ -14,8 +14,11 @@ Extends the CW20 standard with T-REX functionalities and implements permissioned
 
 #### Storage
 - `token_info`: TokenInfo
+  - Name, symbol, decimals, supply and minter(opt)
+  - Minter has an addr and can have a cap
 - `balances`: Map<Addr, Uint128>
 - `allowances`: Map<(Addr, Addr), AllowanceInfo>
+  - uint with an expiration date
 - `identity_registry`: Addr
 - `compliance`: Addr
 
@@ -27,6 +30,13 @@ Extends the CW20 standard with T-REX functionalities and implements permissioned
 - `transfer_from(owner: Addr, recipient: Addr, amount: Uint128) -> Result<Response>`
   - Description: Transfers tokens on behalf of the owner if the recipient is verified and compliant.
   - Interaction: Similar to `transfer`, but checks allowances first.
+
+- `send(contract: Addr, amount: Uint128, msg: Binary) -> Result<Response>`
+  - Msg is weird `Binary::from(r#"{"some":123}"#.as_bytes());`
+- `burn(amount: Uint128) -> Result<Response>`
+- `mint(contract: Addr, amount: Uint128) -> Result<Response>`
+- Increase/Decrease Allowance
+  - Can also change expiration
 
 #### Query
 - `balance(address: Addr) -> BalanceResponse`
@@ -77,7 +87,7 @@ Stores the mapping of wallet addresses to identity contracts.
 
 ### 4. Trusted Issuers Registry
 
-Manages the list of trusted claim issuers.
+Manages the list of trusted claim issuers. OwnerRole::IssuersRegistryManager can change trusted issuers.
 
 #### Storage
 - `trusted_issuers`: Map<Addr, TrustedIssuer>
@@ -92,21 +102,23 @@ Manages the list of trusted claim issuers.
 
 ### 5. Claim Topics Registry
 
-Stores the required claim topics for token eligibility.
+Stores the required claim topics for token eligibility. It is used for compliance. Only those with role OwnerRole::ClaimRegistryManager can change this.
 
 #### Storage
-- `required_claim_topics`: Vec<u32>
+- `token_claim_topics`: Vec<u32>
+  - Token addresses are mapped to claims
+  - Claim is defined by a topic uint128 and an active bool
 
 #### Execute
 - `add_claim_topic(topic: u32) -> Result<Response>`
 - `remove_claim_topic(topic: u32) -> Result<Response>`
 
 #### Query
-- `get_required_claim_topics() -> GetRequiredClaimTopicsResponse`
+- `get_claims_for_token() -> StdResult<Vec<Uint128>>`
 
 ### 6. Modular Compliance
 
-Implements transfer restriction rules.
+Implements transfer restriction rules. Only OwnerRole::ComplianceManager can execute changes. For now country compliance and claims compliance are the ones in use.
 
 #### Storage
 - `modules`: Vec<Addr>

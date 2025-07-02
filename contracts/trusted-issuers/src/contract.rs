@@ -134,7 +134,7 @@ pub mod execute {
         Ok(Response::new()
             .add_attribute("action", "add_trusted_issuer")
             .add_attribute("issuer", issuer.to_string())
-            .add_attribute("claim_topics", format!("{:?}", claim_topics)))
+            .add_attribute("claim_topics", format!("{claim_topics:?}")))
     }
 
     pub fn update_trusted_issuer(
@@ -155,7 +155,7 @@ pub mod execute {
         Ok(Response::new()
             .add_attribute("action", "updated_trusted_issuer")
             .add_attribute("issuer", issuer.to_string())
-            .add_attribute("claim_topics", format!("{:?}", claim_topics)))
+            .add_attribute("claim_topics", format!("{claim_topics:?}")))
     }
 
     pub fn remove_trusted_issuer(deps: DepsMut, issuer: Addr) -> Result<Response, ContractError> {

@@ -126,9 +126,7 @@ pub fn instantiate(
         total_supply,
         mint,
     };
-    let compliance_addr = deps
-        .api
-        .addr_validate(&msg.registeries.compliance_address)?;
+    let compliance_addr = deps.api.addr_validate(&msg.registries.compliance_address)?;
     COMPLIANCE_ADDRESS.save(deps.storage, &compliance_addr)?;
 
     TOKEN_INFO.save(deps.storage, &data)?;
@@ -684,7 +682,7 @@ mod tests {
     };
 
     use super::*;
-    use crate::msg::{InstantiateMarketingInfo, InstantiateTokenInfo, Registeries};
+    use crate::msg::{InstantiateMarketingInfo, InstantiateTokenInfo, Registries};
     use utils::compliance::QueryMsg::CheckTokenCompliance;
 
     fn get_balance<T: Into<String>>(deps: Deps, address: T) -> Uint128 {
@@ -734,7 +732,7 @@ mod tests {
                 mint: mint.clone(),
                 marketing: None,
             },
-            registeries: Registeries {
+            registries: Registries {
                 compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
             },
         };
@@ -780,7 +778,7 @@ mod tests {
                     mint: None,
                     marketing: None,
                 },
-                registeries: Registeries {
+                registries: Registries {
                     compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
                 },
             };
@@ -823,7 +821,7 @@ mod tests {
                     }),
                     marketing: None,
                 },
-                registeries: Registeries {
+                registries: Registries {
                     compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
                 },
             };
@@ -873,7 +871,7 @@ mod tests {
                     }),
                     marketing: None,
                 },
-                registeries: Registeries {
+                registries: Registries {
                     compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
                 },
             };
@@ -909,7 +907,7 @@ mod tests {
                             logo: Some(Logo::Url("url".to_owned())),
                         }),
                     },
-                    registeries: Registeries {
+                    registries: Registries {
                         compliance_address: MockApi::default()
                             .addr_make("compliance_addr")
                             .to_string(),
@@ -954,7 +952,7 @@ mod tests {
                             logo: Some(Logo::Url("url".to_owned())),
                         }),
                     },
-                    registeries: Registeries {
+                    registries: Registries {
                         compliance_address: MockApi::default()
                             .addr_make("compliance_addr")
                             .to_string(),
@@ -1234,7 +1232,7 @@ mod tests {
                 mint: None,
                 marketing: None,
             },
-            registeries: Registeries {
+            registries: Registries {
                 compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
             },
         };
@@ -1261,7 +1259,7 @@ mod tests {
                 mint: None,
                 marketing: None,
             },
-            registeries: Registeries {
+            registries: Registries {
                 compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
             },
         };
@@ -1617,7 +1615,7 @@ mod tests {
                             mint: None,
                             marketing: None,
                         },
-                        registeries: Registeries {
+                        registries: Registries {
                             compliance_address: MockApi::default()
                                 .addr_make("compliance_addr")
                                 .to_string(),
@@ -1729,7 +1727,7 @@ mod tests {
                         logo: Some(Logo::Url("url".to_owned())),
                     }),
                 },
-                registeries: Registeries {
+                registries: Registries {
                     compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
                 },
             };
@@ -1790,7 +1788,7 @@ mod tests {
                         logo: Some(Logo::Url("url".to_owned())),
                     }),
                 },
-                registeries: Registeries {
+                registries: Registries {
                     compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
                 },
             };
@@ -1850,7 +1848,7 @@ mod tests {
                         logo: Some(Logo::Url("url".to_owned())),
                     }),
                 },
-                registeries: Registeries {
+                registries: Registries {
                     compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
                 },
             };
@@ -1910,7 +1908,7 @@ mod tests {
                         logo: Some(Logo::Url("url".to_owned())),
                     }),
                 },
-                registeries: Registeries {
+                registries: Registries {
                     compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
                 },
             };
@@ -1970,7 +1968,7 @@ mod tests {
                         logo: Some(Logo::Url("url".to_owned())),
                     }),
                 },
-                registeries: Registeries {
+                registries: Registries {
                     compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
                 },
             };
@@ -2031,7 +2029,7 @@ mod tests {
                         logo: Some(Logo::Url("url".to_owned())),
                     }),
                 },
-                registeries: Registeries {
+                registries: Registries {
                     compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
                 },
             };
@@ -2090,7 +2088,7 @@ mod tests {
                         logo: Some(Logo::Url("url".to_owned())),
                     }),
                 },
-                registeries: Registeries {
+                registries: Registries {
                     compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
                 },
             };
@@ -2152,7 +2150,7 @@ mod tests {
                         logo: Some(Logo::Url("url".to_owned())),
                     }),
                 },
-                registeries: Registeries {
+                registries: Registries {
                     compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
                 },
             };
@@ -2212,7 +2210,7 @@ mod tests {
                         logo: Some(Logo::Url("url".to_owned())),
                     }),
                 },
-                registeries: Registeries {
+                registries: Registries {
                     compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
                 },
             };
@@ -2268,7 +2266,7 @@ mod tests {
                         logo: Some(Logo::Url("url".to_owned())),
                     }),
                 },
-                registeries: Registeries {
+                registries: Registries {
                     compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
                 },
             };
@@ -2326,7 +2324,7 @@ mod tests {
                         logo: Some(Logo::Url("url".to_owned())),
                     }),
                 },
-                registeries: Registeries {
+                registries: Registries {
                     compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
                 },
             };
@@ -2385,7 +2383,7 @@ mod tests {
                         logo: Some(Logo::Url("url".to_owned())),
                     }),
                 },
-                registeries: Registeries {
+                registries: Registries {
                     compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
                 },
             };
@@ -2442,7 +2440,7 @@ mod tests {
                         logo: Some(Logo::Url("url".to_owned())),
                     }),
                 },
-                registeries: Registeries {
+                registries: Registries {
                     compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
                 },
             };
@@ -2506,7 +2504,7 @@ mod tests {
                         logo: Some(Logo::Url("url".to_owned())),
                     }),
                 },
-                registeries: Registeries {
+                registries: Registries {
                     compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
                 },
             };
@@ -2563,7 +2561,7 @@ mod tests {
                         logo: Some(Logo::Url("url".to_owned())),
                     }),
                 },
-                registeries: Registeries {
+                registries: Registries {
                     compliance_address: MockApi::default().addr_make("compliance_addr").to_string(),
                 },
             };
