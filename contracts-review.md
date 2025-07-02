@@ -218,3 +218,4 @@ Notes
 - No mention to yield, distribution and so on
 - Are allowances ok?
 - Compliance registry has no method to list compliances
+  - Add always overwrites if applying to same token/name
