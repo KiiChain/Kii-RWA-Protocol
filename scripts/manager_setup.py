@@ -67,6 +67,30 @@ if not has_claim_registry_manager["data"]["is_owner"]:
 else:
     print(f"Key {OWNER_KEY_NAME} is a claim registry manager.")
 
+# Setup the compliance manager
+has_compliance_manager = query_contract(
+    CONTRACTS["owner_roles_address"],
+    {"is_owner": {"owner": OWNER_KEY_ADDRESS, "role": "compliance_manager"}},
+)
+if not has_compliance_manager["data"]["is_owner"]:
+    print(f"Key {OWNER_KEY_NAME} is not a compliance manager. Creating a new role...")
+
+    # Create a new role for the owner
+    res = execute_contract(
+        CONTRACTS["owner_roles_address"],
+        {
+            "add_owner_role": {
+                "owner": OWNER_KEY_ADDRESS,
+                "role": "compliance_manager",
+            }
+        },
+        OWNER_KEY_NAME,
+    )
+
+    print("Role created")
+else:
+    print(f"Key {OWNER_KEY_NAME} is a compliance registry manager.")
+
 # Check if a address is a trusted issuer
 is_trusted_issuer = query_contract(
     CONTRACTS["trusted_issuers_address"],
