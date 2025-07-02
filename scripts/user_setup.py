@@ -14,16 +14,16 @@ TRUSTED_ISSUER_KEY_NAME = config.TRUSTED_ISSUER_KEY_NAME
 TRUSTED_ISSUER_KEY_ADDRESS = config.TRUSTED_ISSUER_KEY_ADDRESS
 CONTRACTS = config.CONTRACTS
 
-############
-# Function #
-############
+#############
+# Functions #
+#############
 
 def setup_user(user_name):
   USER_KEY_NAME = user_name
   USER_KEY_ADDRESS = get_key_address(USER_KEY_NAME)
 
   # 1. User creates own identity
-  #Checks if identity exists
+  # Checks if identity exists
   try:
     has_identity = query_contract(
         CONTRACTS["on_chain_id_address"],
@@ -36,7 +36,7 @@ def setup_user(user_name):
     )
 
     # Create a new identity for the owner
-    res = execute_contract(
+    execute_contract(
         CONTRACTS["on_chain_id_address"],
         {
             "add_identity": {
@@ -66,7 +66,7 @@ def setup_user(user_name):
     )
 
     # Give permission to trusted issuer to add claims
-    res = execute_contract(
+    execute_contract(
         CONTRACTS["on_chain_id_address"],
         {
             "add_key": {
@@ -97,7 +97,7 @@ def setup_user(user_name):
     )
 
     # Give permission to trusted issuer to add claims
-    res = execute_contract(
+    execute_contract(
         CONTRACTS["on_chain_id_address"],
         {
             "add_claim": {
