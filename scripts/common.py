@@ -190,6 +190,49 @@ def execute_contract(contract_address, msg, from_key):
     # If all is fine we wait for the tx to be processed
     return check_tx_until_result(tx_hash)
 
+# Create pair executes a kiichaind command to create a factory token as a pair
+def create_pair(factory_address, msg, from_key):
+    # Build the command to execute the contract
+    cmd = [
+        KIICHAIN,
+        "tx",
+        "wasm",
+        "execute",
+        factory_address,
+        json.dumps(msg),
+        "--from",
+        from_key,
+    ] + TXFLAG
+
+    # Run the command
+    result, err = run_cmd(cmd)
+    if len(err.splitlines()) > 1 or "gas estimate" not in err.splitlines()[0]:
+        raise Exception(f"Failed to execute contract: {err}")
+
+    # Get the result and the code
+    code = json.loads(result)["code"]
+    tx_hash = json.loads(result)["txhash"]
+
+    # Check if the code was success
+    if code != 0:
+        raise Exception(f"Failed to execute contract: {result}")
+
+    # If all is fine we wait for the tx to be processed
+    result = check_tx_until_result(tx_hash)
+
+    # Get the pair address from the result
+    print(result)
+    pair_address = next(
+        attr["value"]
+        for event in result["tx_response"]["events"]
+        for attr in event["attributes"]
+        if attr["key"] == "pair_contract_addr"
+    )
+
+    # Return the contract address
+    return pair_address
+
+
 # Query contract queries a contract with the given query message
 def query_contract(contract_address, query_msg):
     # Build the command to query the contract

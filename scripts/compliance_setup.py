@@ -2,7 +2,7 @@
 
 import sys
 import config
-from common import execute_contract, query_contract
+from common import execute_contract
 
 #############################
 # Import Core Variables #
@@ -47,6 +47,20 @@ def add_compliance_to_token(token_address):
         OWNER_KEY_NAME,
     )
     print("Country compliance added")
+
+def add_compliance_claim_to_token(token_address):
+    print(f"Adding claim topic restriction to token {token_address}...")
+    execute_contract(
+        CONTRACTS["claim_topics_address"],
+        {
+            "add_claim_topic_for_token": {
+                "token_addr": token_address,
+                "topic": "1",
+            }
+        },
+        OWNER_KEY_NAME,
+    )
+    print("Restriction added")
 
 ########
 # Call #
