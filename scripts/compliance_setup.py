@@ -16,6 +16,36 @@ CONTRACTS = config.CONTRACTS
 # Functions #
 #############
 
+def remove_old_compliances(token_address):
+    # For now we add the compliances we have to the registry we have
+    # Claims compliance
+    print(f"Removing old claim compliance from token {token_address}...")
+    execute_contract(
+        CONTRACTS["compliance_registry_address"],
+        {
+            "remove_compliance_module": {
+                "token_address": token_address,
+                "module_address": CONTRACTS["compliance_claims_address"],
+            }
+        },
+        OWNER_KEY_NAME,
+    )
+    print("Claim compliance removed")
+
+    # Country compliance
+    print(f"Removing old country compliance from token {token_address}...")
+    execute_contract(
+        CONTRACTS["compliance_registry_address"],
+        {
+            "remove_compliance_module": {
+                "token_address": token_address,
+                "module_address": CONTRACTS["compliance_country_restriction_address"],
+            }
+        },
+        OWNER_KEY_NAME,
+    )
+    print("Country compliance removed")
+
 def add_compliance_to_token(token_address):
     # For now we add the compliances we have to the registry we have
     # Claims compliance
@@ -25,8 +55,8 @@ def add_compliance_to_token(token_address):
         {
             "add_compliance_module": {
                 "token_address": token_address,
-                "module_address": CONTRACTS["compliance_claims_address"],
-                "module_name": "ClaimsCompliance"
+                "module_address": CONTRACTS["compliance_claims_wrapper_address"],
+                "module_name": "ClaimsComplianceWrapped"
             }
         },
         OWNER_KEY_NAME,
@@ -40,8 +70,8 @@ def add_compliance_to_token(token_address):
         {
             "add_compliance_module": {
                 "token_address": token_address,
-                "module_address": CONTRACTS["compliance_country_restriction_address"],
-                "module_name": "ClaimsCompliance"
+                "module_address": CONTRACTS["compliance_country_wrapper_address"],
+                "module_name": "CountryComplianceWrapped"
             }
         },
         OWNER_KEY_NAME,
