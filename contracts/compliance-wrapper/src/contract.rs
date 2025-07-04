@@ -84,6 +84,7 @@ pub mod execute {
     use cosmwasm_std::{to_json_binary, Addr, QueryRequest, WasmQuery};
     use utils::owner_roles::{IsOwnerResponse, QueryMsg};
 
+    /// Check if address has a specific owner role
     pub fn check_role(deps: Deps, owner: Addr, role: OwnerRole) -> Result<(), ContractError> {
         let owner_roles = OWNER_ROLES_ADDRESS.load(deps.storage)?;
         let msg = QueryMsg::IsOwner { role, owner };
@@ -112,6 +113,7 @@ pub mod execute {
             .add_attribute("module_address", module_address.to_string()))
     }
 
+    /// Adds an address to the whitelist
     pub fn add_address_to_whitelist(
         deps: DepsMut,
         address: Addr,
@@ -120,6 +122,7 @@ pub mod execute {
         Ok(Response::new().add_attribute("action", "add_address_to_whitelist"))
     }
 
+    /// Removes an address from the whitelist
     pub fn remove_address_from_whitelist(
         deps: DepsMut,
         address: Addr,
@@ -147,6 +150,7 @@ pub fn query(deps: Deps, _env: Env, msg: utils::compliance::QueryMsg) -> StdResu
     }
 }
 
+/// Check if a given address is whitelisted
 fn is_whitelisted(deps: Deps, address: Option<Addr>) -> bool {
     match address {
         None => true,
