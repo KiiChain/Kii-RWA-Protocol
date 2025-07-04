@@ -125,6 +125,44 @@ print(
     f"Compliance Country Restriction contract instantiated at {compliance_country_restriction_address}"
 )
 
+# Compliance wrapper for country and claims
+print("Deploying Compliance wrapper")
+compliance_wrapper = store_contract(
+    "artifacts/compliance_wrapper.wasm", KEY_NAME
+)
+print(
+    f"Compliance wrapper stored with code ID {compliance_wrapper}"
+)
+
+# Country wrapper
+compliance_wrapper_country_init_msg = {
+    "module_address": compliance_country_restriction_address,
+    "owner_roles_address": owner_roles_address,
+}
+compliance_wrapper_country_address = instantiate_contract(
+    compliance_wrapper,
+    compliance_wrapper_country_init_msg,
+    "ComplianceCountryWrapper",
+    KEY_NAME,
+)
+print(
+    f"Compliance Country Wrapper contract instantiated at {compliance_wrapper_country_address}"
+)
+# Claims wrapper
+compliance_wrapper_claims_init_msg = {
+    "module_address": compliance_claims_address,
+    "owner_roles_address": owner_roles_address,
+}
+compliance_wrapper_claims_address = instantiate_contract(
+    compliance_wrapper,
+    compliance_wrapper_claims_init_msg,
+    "ComplianceClaimsWrapper",
+    KEY_NAME,
+)
+print(
+    f"Compliance Claims Wrapper contract instantiated at {compliance_wrapper_claims_address}"
+)
+
 # CW20 base for test token
 print("Deploying CW20 Base contract...")
 cw20_base = store_contract("artifacts/cw20_base.wasm", KEY_NAME)
