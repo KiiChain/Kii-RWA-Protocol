@@ -358,7 +358,7 @@ mod tests {
                         from: _,
                         to: _,
                         amount: _,
-                    } => SystemResult::Ok(ContractResult::Ok(to_json_binary(&false).unwrap())),
+                    } => SystemResult::Ok(ContractResult::Ok(to_json_binary(&true).unwrap())),
                 }
             }
             _ => panic!("Unexpected query type"),
