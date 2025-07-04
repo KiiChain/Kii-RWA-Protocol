@@ -226,12 +226,95 @@ def create_pair(factory_address, msg, from_key):
         attr["value"]
         for event in result["tx_response"]["events"]
         for attr in event["attributes"]
-        if attr["key"] == "pair_contract_addr"
+        if event["type"] == "wasm" and attr["key"] == "pair_contract_addr"
     )
 
     # Return the contract address
     return pair_address
 
+def increase_allowance(cw_token_address, pair_address, key_name, amount):
+    """Increase allowance for the pair contract to spend CW20 tokens"""
+    allowance_msg = {
+        "increase_allowance": {
+            "spender": pair_address,
+            "amount": str(amount)
+        }
+    }
+
+    cmd = [
+        KIICHAIN,
+        "tx",
+        "wasm",
+        "execute",
+        cw_token_address,
+        json.dumps(allowance_msg),
+        "--from",
+        key_name,
+    ] + TXFLAG
+
+    result, err = run_cmd(cmd)
+    if len(err.splitlines()) > 1 or "gas estimate" not in err.splitlines()[0]:
+        raise Exception(f"Failed to increase allowance: {err}")
+
+    # Check transaction result
+    result_json = json.loads(result)
+    if result_json.get("code") != 0:
+        raise Exception(f"Failed to increase allowance: {result}")
+
+    tx_hash = result_json["txhash"]
+    events = check_tx_until_result(tx_hash)
+    print("Allowance increased successfully")
+    return events
+
+def provide_liquidity(pair_address, cw_token_address, cw20_amount, native_amount, key_name):
+    """Provide liquidity to the pair"""
+    liquidity_msg = {
+        "provide_liquidity": {
+            "assets": [
+                {
+                    "info": {
+                        "token": {"contract_addr": cw_token_address}
+                    },
+                    "amount": str(cw20_amount)
+                },
+                {
+                    "info": {
+                        "native_token": {"denom": "akii"}
+                    },
+                    "amount": str(native_amount)
+                }
+            ],
+            "slippage_tolerance": "0.02",
+            "auto_stake": False
+        }
+    }
+
+    cmd = [
+        KIICHAIN,
+        "tx",
+        "wasm",
+        "execute",
+        pair_address,
+        json.dumps(liquidity_msg),
+        "--amount",
+        f"{native_amount}akii",
+        "--from",
+        key_name,
+    ] + TXFLAG
+
+    result, err = run_cmd(cmd)
+    if len(err.splitlines()) > 1 or "gas estimate" not in err.splitlines()[0]:
+        raise Exception(f"Failed to provide liquidity: {err}")
+
+    # Check transaction result
+    result_json = json.loads(result)
+    if result_json.get("code") != 0:
+        raise Exception(f"Failed to provide liquidity: {result}")
+
+    tx_hash = result_json["txhash"]
+    events = check_tx_until_result(tx_hash)
+    print("Liquidity added successfully")
+    return events
 
 # Query contract queries a contract with the given query message
 def query_contract(contract_address, query_msg):

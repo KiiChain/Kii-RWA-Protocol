@@ -92,6 +92,29 @@ def add_compliance_claim_to_token(token_address):
     )
     print("Restriction added")
 
+def whitelist_address(address):
+    print(f"Whitelisting address {address} on country compliance wrapper")
+    execute_contract(
+        CONTRACTS["compliance_country_wrapper_address"],
+        {
+            "add_address_to_whitelist": {
+                "address": address,
+            }
+        },
+        OWNER_KEY_NAME,
+    )
+    print(f"Whitelisting address {address} on claims compliance wrapper")
+    execute_contract(
+        CONTRACTS["compliance_claims_wrapper_address"],
+        {
+            "add_address_to_whitelist": {
+                "address": address,
+            }
+        },
+        OWNER_KEY_NAME,
+    )
+
+
 ########
 # Call #
 ########
