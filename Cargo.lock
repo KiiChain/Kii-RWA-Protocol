@@ -298,7 +298,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "compliance-wrapper"
+name = "compliance-whitelist-wrapper"
 version = "0.1.0"
 dependencies = [
  "cosmwasm-schema",
