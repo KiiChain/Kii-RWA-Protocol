@@ -221,7 +221,6 @@ def create_pair(factory_address, msg, from_key):
     result = check_tx_until_result(tx_hash)
 
     # Get the pair address from the result
-    print(result)
     pair_address = next(
         attr["value"]
         for event in result["tx_response"]["events"]

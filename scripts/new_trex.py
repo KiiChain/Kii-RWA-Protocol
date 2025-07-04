@@ -22,10 +22,21 @@ FACTORY_ADDRESS = config.FACTORY_ADDRESS
 #############
 
 # Deploy trex creates a new instance of a trex contract with the default owner
-def deploy_trex(json_setup):
-    print("Deploying trex ")
+def deploy_trex():
+    print("Deploying trex")
+    cw20_init_msg = {
+      "token_info": {
+          "name": "Test Token",
+          "symbol": "TEST",
+          "decimals": 6,
+          "initial_balances": [{"address": OWNER_KEY_ADDRESS, "amount": "1000000"}],
+      },
+      "registries": {
+          "compliance_address": CONTRACTS["compliance_registry_address"],
+      },
+  }
     trex_base_address = instantiate_contract(
-        CW20_BASE_CODE_ID, json_setup, "T-REX", OWNER_KEY_NAME
+        CW20_BASE_CODE_ID, cw20_init_msg, "T-REX", OWNER_KEY_NAME
     )
     print(f"Contract deployed with address: {trex_base_address}")
     return trex_base_address
@@ -64,13 +75,16 @@ def create_liquidity(token_address, cw20_amount, native_amount):
     return pair_address
 
 # setup trex deploys and sets up a pool and compliance for a trex
-def setup_trex(json_setup):
+def setup_trex():
     print("Setting up new trex token")
     # Deploy new instance of contract with our default owner
-    trex_address = deploy_trex(json_setup)
+    trex_address = deploy_trex()
 
     # Create pair and liquidity
-    pair_address = create_liquidity(trex_address)
+    # Please save this pair somewhere, it is important to do swaps in the future
+    cw20_amount = 1000000
+    native_amount = 10000000000000
+    pair_address = create_liquidity(trex_address, cw20_amount, native_amount)
 
     # Add compliance modules to token, using same ones we already have
     # This means the same trusted issuer will be used
@@ -82,34 +96,9 @@ def setup_trex(json_setup):
     # Adding claim to token, assuming default topic 1
     add_compliance_claim_to_token(trex_address)
 
-# Flow to add a new asset
-# - Create a new CW_20
-# - Add compliances modules to token
-# - Add claim topic to token
-# - Create a new pair between CW_20 and native token
-#   - This will be a pool
-#   - In the future we might want different pairs
-# - Set up CW_20 compliance
-#   - We need to register a claim limitation for the token
-#     - We specify a topic (we using 1 for now)
-#     - Needs a trusted issuer
-
-# Example json setup
-# cw20_base_init_msg = {
-#     "token_info": {
-#         "name": "Test Token",
-#         "symbol": "TEST",
-#         "decimals": 6,
-#         "initial_balances": [{"address": OWNER_KEY_ADDRESS, "amount": "1000000"}],
-#     },
-#     "registries": {
-#         "compliance_address": CONTRACTS["compliance_registry_address"],
-#     },
-# }
-
 ########
 # Call #
 ########
 
 if __name__== "__main__":
-  create_liquidity(config.CONTRACTS["cw20_base_address"], 1000, 10000000000)
+  setup_trex()

@@ -20,7 +20,7 @@ CONTRACTS = {
     "compliance_country_wrapper_address" : "kii125u5ufx0jfelud68zn40dyvk8gfsat24s7v322jwnxghjtve7rtqsqchja",
     "cw20_base_address": "kii1zvjy36ysunq56dhgyxggp5gwrymxjs95twj5lgcpqujftppn739s83aym4",
 }
-CW20_BASE_CODE_ID = 160
+CW20_BASE_CODE_ID = "160"
 FACTORY_ADDRESS="kii1ct5yx003l9h2fsahug0vpx7xec4k66he0try0fclxg59fd4aztys4mnds9"
 
 # Management
