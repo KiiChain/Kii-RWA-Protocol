@@ -16,8 +16,12 @@ CONTRACTS = {
     "compliance_registry_address": "kii1dpws8lmu2l4awdau6zhezxm97tshu427aulr2xwp7uarpd8jqu7srjz2gm",
     "compliance_claims_address": "kii12n3frtnx8mh2vpvzk7mqkr6yqkfe77339c7uakzqqa4pv46zdr9qt020h3",
     "compliance_country_restriction_address": "kii1k4j6gr75k23tvqjdw9zvtrdxh7pxtexy5pdk7xjmwf385msx75fsz470kz",
+    "compliance_claims_wrapper_address" : "kii1xlz8y3v0u0z428tvhdlqh930rmnafy84ecjc37gxacd02remdl8s00sh94",
+    "compliance_country_wrapper_address" : "kii125u5ufx0jfelud68zn40dyvk8gfsat24s7v322jwnxghjtve7rtqsqchja",
     "cw20_base_address": "kii1zvjy36ysunq56dhgyxggp5gwrymxjs95twj5lgcpqujftppn739s83aym4",
 }
+CW20_BASE_CODE_ID = "160"
+FACTORY_ADDRESS="kii1ct5yx003l9h2fsahug0vpx7xec4k66he0try0fclxg59fd4aztys4mnds9"
 
 # Management
 TRUSTED_ISSUER_KEY_NAME = "trusted_issuer"
