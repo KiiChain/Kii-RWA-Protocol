@@ -184,11 +184,7 @@ pub mod query {
         // Check compliance with wrapped module
         let msg = utils::compliance::QueryMsg::CheckTokenCompliance {
             token_address: token_address.clone(),
-            from: if is_whitelisted(deps, from.clone()) {
-                None
-            } else {
-                from
-            },
+            from: from.clone(),
             to: to.clone(),
             amount,
         };
