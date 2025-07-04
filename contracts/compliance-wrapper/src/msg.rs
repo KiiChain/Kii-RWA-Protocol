@@ -9,13 +9,7 @@ pub struct InstantiateMsg {
 
 #[cw_serde]
 pub enum ExecuteMsg {
-    ChangeComplianceModule {
-        module_address: Addr,
-    },
-    AddAddressToWhitelist {
-        address: Addr,
-    },
-    RemoveAddressFromWhitelist {
-        address: Addr,
-    },
+    ChangeComplianceModule { module_address: Addr },
+    AddAddressToWhitelist { address: Addr },
+    RemoveAddressFromWhitelist { address: Addr },
 }

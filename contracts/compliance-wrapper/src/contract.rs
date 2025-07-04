@@ -1,6 +1,8 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
-use cosmwasm_std::{to_json_binary, Addr, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
+use cosmwasm_std::{
+    to_json_binary, Addr, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult,
+};
 use cw2::set_contract_version;
 
 use crate::error::ContractError;
@@ -63,9 +65,9 @@ pub fn execute(
     execute::check_role(deps.as_ref(), info.sender, OwnerRole::ComplianceManager)?;
 
     match msg {
-        ExecuteMsg::ChangeComplianceModule {
-            module_address,
-        } => execute::change_compliance_module(deps, module_address),
+        ExecuteMsg::ChangeComplianceModule { module_address } => {
+            execute::change_compliance_module(deps, module_address)
+        }
         ExecuteMsg::AddAddressToWhitelist { address } => {
             execute::add_address_to_whitelist(deps, address)
         }
@@ -114,7 +116,7 @@ pub mod execute {
         deps: DepsMut,
         address: Addr,
     ) -> Result<Response, ContractError> {
-        WHITELISTED_ADDRESSES.save(deps.storage, address.clone(), &true,)?;
+        WHITELISTED_ADDRESSES.save(deps.storage, address.clone(), &true)?;
         Ok(Response::new().add_attribute("action", "add_address_to_whitelist"))
     }
 
@@ -148,7 +150,7 @@ pub fn query(deps: Deps, _env: Env, msg: utils::compliance::QueryMsg) -> StdResu
 fn is_whitelisted(deps: Deps, address: Option<Addr>) -> bool {
     match address {
         None => true,
-        Some(addr) => WHITELISTED_ADDRESSES.load(deps.storage, addr).is_ok()
+        Some(addr) => WHITELISTED_ADDRESSES.load(deps.storage, addr).is_ok(),
     }
 }
 
@@ -168,13 +170,25 @@ pub mod query {
         let module_address = COMPLIANCE_MODULE_ADDRESS.load(deps.storage)?;
 
         // Replace whitelisted addrs with None
-        let from = if is_whitelisted(deps, from.clone()) { None } else { from };
-        let to = if is_whitelisted(deps, to.clone()) { None } else { to };
+        let from = if is_whitelisted(deps, from.clone()) {
+            None
+        } else {
+            from
+        };
+        let to = if is_whitelisted(deps, to.clone()) {
+            None
+        } else {
+            to
+        };
 
         // Check compliance with wrapped module
         let msg = utils::compliance::QueryMsg::CheckTokenCompliance {
             token_address: token_address.clone(),
-            from: if is_whitelisted(deps, from.clone()) { None } else { from },
+            from: if is_whitelisted(deps, from.clone()) {
+                None
+            } else {
+                from
+            },
             to: to.clone(),
             amount,
         };
@@ -221,7 +235,9 @@ mod tests {
         assert_eq!(owner_roles, Addr::unchecked("owner_roles"));
 
         // Check that the module_address was properly set
-        let compliance_module = COMPLIANCE_MODULE_ADDRESS.load(deps.as_ref().storage).unwrap();
+        let compliance_module = COMPLIANCE_MODULE_ADDRESS
+            .load(deps.as_ref().storage)
+            .unwrap();
         assert_eq!(compliance_module, Addr::unchecked("compliance_module"));
     }
 
@@ -253,7 +269,7 @@ mod tests {
             _ => panic!("Unexpected query type"),
         });
         let info = message_info(&Addr::unchecked("admin"), &[]);
-        let msg = ExecuteMsg::ChangeComplianceModule{
+        let msg = ExecuteMsg::ChangeComplianceModule {
             module_address: Addr::unchecked("module"),
         };
 
@@ -298,7 +314,7 @@ mod tests {
 
         // Now remove the module
         let remove_msg = ExecuteMsg::RemoveAddressFromWhitelist {
-           address: Addr::unchecked("address"),
+            address: Addr::unchecked("address"),
         };
         let res = execute(deps.as_mut(), mock_env(), info, remove_msg).unwrap();
         assert_eq!(1, res.attributes.len());
